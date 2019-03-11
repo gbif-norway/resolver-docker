@@ -16,3 +16,7 @@ class ResolverViewTests(TestCase):
         response_string = response.content.decode('utf-8').lower()
         self.assertTrue('occurrence' in response_string)
         self.assertTrue(uuid in response_string)
+
+    def test_displays_404_given_invalid_uuid(self):
+        response = self.client.get(reverse('detail', args=['00000000-0000-0000-0000-000000000000']))
+        self.assertEqual(response.status_code, 404)
