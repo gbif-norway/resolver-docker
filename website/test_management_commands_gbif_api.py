@@ -1,5 +1,6 @@
 from website.management.commands import _gbif_api
 from django.test import TestCase
+from io import BytesIO
 import responses
 import requests
 
@@ -31,4 +32,17 @@ class GbifApiTest(TestCase):
         self.assertEqual(len(responses.calls), 1)
         self.assertEqual(responses.calls[0].request.url, api_url)
         self.assertEqual(dataset_endpoints, self.endpoints_example)
+
+    @responses.activate
+    def test_get_cores_from_ipt(self):
+        url = 'https://data.gbif.no/ipt/archive.do?r=o_vxl'
+        with open('website/dwc_archive_test_file.zip', 'rb') as dwc_zip_stream:
+            responses.add(responses.GET, url, body=dwc_zip_stream.read(), status=200, content_type='application/zip', stream=True)
+
+        retrieved_zip = _gbif_api.get_cores_from_ipt(url)
+        retrieved_first_line = retrieved_zip[0][1].readline()
+        first_line = b'id\tmodified\tinstitutionCode\tcollectionCode\tbasisOfRecord\toccurrenceID\tcatalogNumber\trecordedBy\tindividualCount\tsex\tpreparations\totherCatalogNumbers\tassociatedMedia\tsamplingProtocol\teventTime\tyear\tmonth\tday\thabitat\tfieldNumber\teventRemarks\tcontinent\tcountry\tstateProvince\tcounty\tlocality\tminimumElevationInMeters\tmaximumElevationInMeters\tminimumDepthInMeters\tmaximumDepthInMeters\tdecimalLatitude\tdecimalLongitude\tcoordinateUncertaintyInMeters\tidentifiedBy\tdateIdentified\ttypeStatus\tscientificName\tkingdom\tphylum\tclass\torder\tfamily\tgenus\tspecificEpithet\tinfraspecificEpithet\tscientificNameAuthorship\n'
+        self.assertEqual(len(responses.calls), 1)
+        self.assertEqual(responses.calls[0].request.url, url)
+        self.assertEqual(retrieved_first_line, first_line)
 
