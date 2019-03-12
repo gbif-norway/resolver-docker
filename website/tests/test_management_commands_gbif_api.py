@@ -1,13 +1,11 @@
 from website.management.commands import _gbif_api
 from django.test import TestCase
+from django.core import mail
 import responses
 import requests
 
 class GbifApiTest(TestCase):
     endpoints_example = [{'type': 'EML', 'url': 'http://data.gbif.no/eml.do?r=dataset'}, {'type': 'DWC_ARCHIVE', 'url': 'http://data.gbif.no/archive.do?r=dataset'}, {'type': 'DWC_ARCHIVE', 'url': 'old-and-invalid'}]
-
-    def test_get_first_darwin_core_url_from_list(self):
-        self.assertEqual(_gbif_api.get_first_darwin_core_url_from_list(self.endpoints_example), self.endpoints_example[1])
 
     @responses.activate
     def test_get_dataset_list(self):
@@ -22,15 +20,38 @@ class GbifApiTest(TestCase):
         self.assertEqual(dataset_list, mock_datasets)
 
     @responses.activate
+    def test_get_dataset_list_api_fail(self):
+        url = _gbif_api.GBIF_API_DATASET_URL.format('search?limit=5000&publishingCountry=NO')
+        responses.add(responses.GET, url, json={}, status=500)
+        dataset_list = _gbif_api.get_dataset_list()
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].subject, '[Django] Error in populating the resolver. GET request code: 500.')
+        self.assertIn(url, mail.outbox[0].body)
+
+    @responses.activate
     def test_get_dataset_endpoints(self):
         key = 'd34ed8a4-d3cb-473c-a11c-79c5fec4d649'
-        api_url = _gbif_api.GBIF_API_DATASET_URL.format(key)
-        responses.add(responses.GET, api_url, json={'key': key, 'endpoints': self.endpoints_example}, status=200)
+        url = _gbif_api.GBIF_API_DATASET_URL.format(key)
+        responses.add(responses.GET, url, json={'key': key, 'endpoints': self.endpoints_example}, status=200)
 
         dataset_endpoints = _gbif_api.get_dataset_endpoints(key)
         self.assertEqual(len(responses.calls), 1)
-        self.assertEqual(responses.calls[0].request.url, api_url)
+        self.assertEqual(responses.calls[0].request.url, url)
         self.assertEqual(dataset_endpoints, self.endpoints_example)
+
+    @responses.activate
+    def test_get_dataset_endpoints_api_fail(self):
+        key = 'd34ed8a4-d3cb-473c-a11c-79c5fec4d649'
+        url = _gbif_api.GBIF_API_DATASET_URL.format(key)
+        responses.add(responses.GET, url, json={}, status=404)
+        dataset_endpoints = _gbif_api.get_dataset_endpoints(key)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].subject, '[Django] Error in populating the resolver. GET request code: 404.')
+        self.assertIn(url, mail.outbox[0].body)
+
+    def test_get_first_darwin_core_url_from_list(self):
+        self.assertEqual(_gbif_api.get_first_darwin_core_url_from_list(self.endpoints_example), self.endpoints_example[1])
+    # TODO also generate error if endpoint does not list DWC?
 
     @responses.activate
     def test_get_cores_from_ipt(self):
@@ -44,4 +65,13 @@ class GbifApiTest(TestCase):
         self.assertEqual(len(responses.calls), 1)
         self.assertEqual(responses.calls[0].request.url, url)
         self.assertEqual(retrieved_first_line, first_line)
+
+    @responses.activate
+    def test_get_cores_from_ipt_fail(self):
+        url = 'https://data.gbif.no/ipt/archive.do?r=o_vxl'
+        responses.add(responses.GET, url, json={}, status=404)
+        retrieved_zip = _gbif_api.get_cores_from_ipt(url)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].subject, '[Django] Error in populating the resolver. GET request code: 404.')
+        self.assertIn(url, mail.outbox[0].body)
 

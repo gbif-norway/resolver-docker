@@ -23,7 +23,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = '_fwo$(&guk5^9+wk+scd*b&3nxe=fw=c9u1eci9v9fq17xgfu#'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = ['0.0.0.0']
 
@@ -113,3 +113,9 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/2.1/howto/static-files/
 
 STATIC_URL = '/static/'
+
+
+# Admins
+ADMINS = (
+  ('GBIF Norway', 'helpdesk@gbif.no'),
+)
