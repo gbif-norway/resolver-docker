@@ -10,3 +10,5 @@ class PopulateResolverTest(TestCase):
         out = StringIO()
         call_command('populate_resolver', stdout=out)
         self.assertIn('test', out.getvalue())
+
+

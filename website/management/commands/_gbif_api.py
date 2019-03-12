@@ -15,7 +15,7 @@ def get_dataset_list():
         json = response.json()
         return json['results']
     except requests.exceptions.RequestException as e:
-        email_error(e)
+        _email_error(e)
         return []
 
 def get_dataset_endpoints(dataset_key):
@@ -25,7 +25,7 @@ def get_dataset_endpoints(dataset_key):
         json = response.json()
         return json['endpoints']
     except requests.exceptions.RequestException as e:
-        email_error(e)
+        _email_error(e)
         return []
 
 def get_first_darwin_core_url_from_list(endpoints):
@@ -35,16 +35,16 @@ def get_cores_from_ipt(url):
     try:
         response = requests.get(url)
         response.raise_for_status()
-        zipfile = ZipFile(BytesIO(response.content))
-        file_names = zipfile.namelist()
+        with ZipFile(BytesIO(response.content)) as zipfile:
+            file_names = zipfile.namelist()
 
-        # Returns e.g. [('occurrence', fileobj), ('multimedia', fileobj)] for occurrence.txt and multimedia.txt files
-        return [(fn[:-3], zipfile.open(fn)) for fn in file_names if fn[-3:] == 'txt']
+            # Returns e.g. [('occurrence', fileobj), ('multimedia', fileobj)] for occurrence.txt and multimedia.txt files
+            return [(fn[:-3], zipfile.open(fn)) for fn in file_names if fn[-3:] == 'txt']
     except requests.exceptions.RequestException as e:
-        email_error(e)
+        _email_error(e)
         return []
 
-def email_error(e):
+def _email_error(e):
     exc_info = sys.exc_info()
     subject = "Error in populating the resolver. GET request code: %s." % (e.response.status_code)
     message = "URL: %s\n\n%s" % (e.response.url, '\n'.join(traceback.format_exception(*exc_info)))
