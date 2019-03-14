@@ -1,23 +1,23 @@
 from django.core.management.base import BaseCommand, CommandError
 from django.core import mail
 from website.models import DarwinCoreObject
-from _gbif_api import *
-from _darwin_core_processing import *
+from website.management.commands import _gbif_api
+from website.management.commands import _darwin_core_processing
 
 class Command(BaseCommand):
     help = 'Populates the resolver from datasets added to GBIF by Norwegian IPTs'
 
     def handle(self, *args, **options):
         total_added = 0
-        for dataset in get_dataset_list():
-            endpoints = get_dataset_endpoints(dataset['key'])
-            darwin_core_endpoint = get_first_drawin_core_url_from_list(endpoints)
+        for dataset in _gbif_api.get_dataset_list():
+            endpoints = _gbif_api.get_dataset_endpoints(dataset['key'])
+            darwin_core_endpoint = _gbif_api.get_first_darwin_core_url_from_list(endpoints)
 
-            with get_cores_from_ipt(darwin_core_endpoint['url']) as cores:
+            with _gbif_api.get_cores_from_ipt(darwin_core_endpoint['url']) as cores:
                 for core_type, file_obj in cores:
-                    core_id_key = get_core_id(core_type)
+                    core_id_key = _darwin_core_processing.get_core_id(core_type)
                     if core_id_key:
-                        darwin_core_objects = build_darwin_core_objects(core_id_key, file_obj)
+                        darwin_core_objects = _darwin_core_processing.build_darwin_core_objects(core_id_key, file_obj)
                         DarwinCoreObject.objects.bulk_create(darwin_core_objects)
                         total_added += len(darwin_core_objects)
                     else:
