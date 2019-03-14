@@ -9,6 +9,6 @@ class DarwinCoreProcessingTest(TestCase):
         self.assertEqual(False, _darwin_core_processing.get_core_id('measurement'))
 
     def test_build_darwin_core_objects(self):
-        file_obj = open('website/tests/occurrence_test_file_large.txt')
-        darwin_core_objects = _darwin_core_processing.build_darwin_core_objects_test('occurrenceid', file_obj)
+        with open('website/tests/occurrence_test_file_large.txt') as file_obj:
+            darwin_core_objects = _darwin_core_processing.build_darwin_core_objects('occurrenceid', file_obj)
         self.assertEqual(darwin_core_objects, 3403810)
