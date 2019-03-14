@@ -8,7 +8,13 @@ class DarwinCoreProcessingTest(TestCase):
     def test_get_core_id_fail(self):
         self.assertEqual(False, _darwin_core_processing.get_core_id('measurement'))
 
-    def test_build_darwin_core_objects(self):
+    def test_create_large_darwin_core_objects(self):
         with open('website/tests/occurrence_test_file_large.txt') as file_obj:
-            darwin_core_objects = _darwin_core_processing.build_darwin_core_objects('occurrenceid', file_obj)
+            darwin_core_objects = _darwin_core_processing.create_darwin_core_objects('occurrenceid', file_obj)
         self.assertEqual(darwin_core_objects, 3403810)
+
+    def test_build_invalid_darwin_core_objects(self):
+        # Tests that rows with invalid uuids, blank uuids and unescaped tabs do not get added to db
+        with open('website/tests/occurrence_test_file_complicated.txt') as file_obj:
+            darwin_core_objects = _darwin_core_processing.create_darwin_core_objects('occurrenceid', file_obj)
+        self.assertEqual(darwin_core_objects, 13)

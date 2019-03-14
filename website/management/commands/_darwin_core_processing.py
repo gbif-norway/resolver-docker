@@ -13,9 +13,10 @@ def get_core_id(core_type):
      except KeyError as e:
          return False
 
-def build_darwin_core_objects(core_id_key, file_obj):
+def create_darwin_core_objects(core_id_key, file_obj):
     darwin_core_objects = []
     columns = file_obj.readline().rstrip().split('\t')
+    start = DarwinCoreObject.objects.all().count()
     for (i, line) in enumerate(file_obj):
         _add_darwin_core_object(darwin_core_objects, line, columns)
         if i % 10000 == 0:
@@ -24,13 +25,22 @@ def build_darwin_core_objects(core_id_key, file_obj):
             darwin_core_objects = []
     with transaction.atomic():  # Save the last set of darwin_core_objects
         DarwinCoreObject.objects.bulk_create(darwin_core_objects)
-    return DarwinCoreObject.objects.all().count()
+    return DarwinCoreObject.objects.all().count() - start
 
 def _add_darwin_core_object(darwin_core_objects, line, columns):
     values = line.rstrip().split('\t')
     if len(columns) < len(values):
-       print('error')
+        return
+
     data_json = dict(zip_longest(columns, values))
-    if UUID(data_json['id']):
-        darwin_core_objects.append(DarwinCoreObject(uuid=data_json['id'], data=data_json))
+    try:
+        UUID(data_json['id'])  # Do we need to use core_id_key here?
+    except:
+        return
+
+    dwc_obj = DarwinCoreObject(uuid=data_json['id'], data=data_json)
+    darwin_core_objects.append(dwc_obj)
+
+def _email_message(subject, message):
+    mail.mail_admins(subject, message, fail_silently=True)
 
