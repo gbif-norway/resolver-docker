@@ -17,8 +17,7 @@ class Command(BaseCommand):
                 for core_type, file_obj in cores:
                     core_id_key = _darwin_core_processing.get_core_id(core_type)
                     if core_id_key:
-                        darwin_core_objects = _darwin_core_processing.build_darwin_core_objects(core_id_key, file_obj)
-                        DarwinCoreObject.objects.bulk_create(darwin_core_objects)
+                        darwin_core_objects = _darwin_core_processing.create_darwin_core_objects(core_id_key, file_obj)
                         total_added += len(darwin_core_objects)
                     else:
                         _email_error('Core ID not supported %s' % (core_type), 'File : %s' % (darwin_core_endpoint['url']))
