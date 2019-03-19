@@ -4,7 +4,6 @@ import requests
 import sys
 import traceback
 from django.core import mail
-from django.views.debug import ExceptionReporter
 
 GBIF_API_DATASET_URL = "https://api.gbif.org/v1/dataset/{}"
 
@@ -28,7 +27,7 @@ def get_dataset_endpoints(dataset_key):
         _email_error(e)
         return []
 
-def get_first_darwin_core_url_from_list(endpoints):
+def get_dwc_endpoint(endpoints):
     return next(endpoint for endpoint in endpoints if endpoint['type'] == 'DWC_ARCHIVE')
 
 def get_cores_from_ipt(url):

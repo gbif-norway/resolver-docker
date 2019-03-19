@@ -2,7 +2,6 @@ from website.management.commands import _gbif_api
 from django.test import TestCase
 from django.core import mail
 import responses
-import requests
 
 class GbifApiTest(TestCase):
     endpoints_example = [{'type': 'EML', 'url': 'http://data.gbif.no/eml.do?r=dataset'}, {'type': 'DWC_ARCHIVE', 'url': 'http://data.gbif.no/archive.do?r=dataset'}, {'type': 'DWC_ARCHIVE', 'url': 'old-and-invalid'}]
@@ -49,8 +48,8 @@ class GbifApiTest(TestCase):
         self.assertEqual(mail.outbox[0].subject, '[Django] Error in populating the resolver. GET request code: 404.')
         self.assertIn(url, mail.outbox[0].body)
 
-    def test_get_first_darwin_core_url_from_list(self):
-        self.assertEqual(_gbif_api.get_first_darwin_core_url_from_list(self.endpoints_example), self.endpoints_example[1])
+    def test_get_dwc_endpoint(self):
+        self.assertEqual(_gbif_api.get_dwc_endpoint(self.endpoints_example), self.endpoints_example[1])
     # TODO also generate error if endpoint does not list DWC?
 
     @responses.activate
