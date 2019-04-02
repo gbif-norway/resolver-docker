@@ -14,7 +14,22 @@ class PopulateResolverTest(TestCase):
     endpoints_example = [{'type': 'DWC_ARCHIVE', 'url': 'http://data.gbif.no/archive.do?r=dataset'}]
 
     @responses.activate
-    def test_bad_core_email_alert(self):
+    def test_adds_records_to_resolver(self):
+        self._mock_get_dataset_list()
+        self._mock_get_dataset_endpoints()
+        with open('website/tests/occurrence_test_file_small.txt') as file_obj:
+            with mock.patch('website.management.commands._gbif_api.get_cores_from_ipt', return_value=[('occurrence', file_obj)]):
+                call_command('populate_resolver', stdout=StringIO())
+
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT COUNT(*) FROM replacement_table")
+            self.assertEqual(cursor.fetchone()[0], 5000)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].subject, '[Django] Resolver import complete %s' % datetime.datetime.now().strftime("%Y-%m-%d"))
+        self.assertIn(mail.outbox[0].body, 'Total number of rows imported 5000')
+
+    @responses.activate
+    def test_sends_email_if_bad_core(self):
         self._mock_get_dataset_list()
         self._mock_get_dataset_endpoints()
         with mock.patch('website.management.commands._gbif_api.get_cores_from_ipt', return_value=[('incorrect_core_type', StringIO('file_obj'))]):
@@ -26,7 +41,7 @@ class PopulateResolverTest(TestCase):
         self.assertIn(mail.outbox[1].body, 'Total number of rows imported 0')
 
     @responses.activate
-    def test_bad_core_still_adds_other_valid_cores(self):
+    def test_still_adds_records_for_other_valid_cores_with_bad_core(self):
         self._mock_get_dataset_list()
         self._mock_get_dataset_endpoints()
         with open('website/tests/occurrence_test_file_small.txt') as file_obj:
@@ -37,6 +52,19 @@ class PopulateResolverTest(TestCase):
         with connection.cursor() as cursor:
             cursor.execute("SELECT COUNT(*) FROM replacement_table")
             self.assertEqual(cursor.fetchone()[0], 5000)
+
+    @responses.activate
+    def test_no_records_added_triggers_email(self):
+        self._mock_get_dataset_list()
+        self._mock_get_dataset_endpoints()
+        with mock.patch('website.management.commands._gbif_api.get_cores_from_ipt', return_value=[('occurrence', StringIO('file_obj'))]):
+            with mock.patch('website.management.commands._darwin_core_processing.copy_csv_to_replacement_table', return_value=0):
+                call_command('populate_resolver', stdout=StringIO())
+        self.assertEqual(len(mail.outbox), 2)
+        self.assertEqual(mail.outbox[0].subject, "[Django] No items added for occurrence")
+        self.assertIn(mail.outbox[0].body, "File : %s" % self.endpoints_example[0]['url'])
+        self.assertEqual(mail.outbox[1].subject, '[Django] Resolver import complete %s' % datetime.datetime.now().strftime("%Y-%m-%d"))
+        self.assertIn(mail.outbox[1].body, 'Total number of rows imported 0')
 
     def _mock_get_dataset_list(self):
         mock_datasets = [{'key': 'd34ed8a4-d3cb-473c-a11c-79c5fec4d649'}]

@@ -24,7 +24,7 @@ class Command(BaseCommand):
                     if count_of_added:
                         total_added += count_of_added
                     else:
-                        self._email_error('No items added for %s' % (core_type), 'File : %s' % (darwin_core_endpoints['url']))
+                        self._email_error('No items added for %s' % (core_type), 'File : %s' % (darwin_core_endpoint['url']))
                 else:
                     self._email_error('Core type not supported: %s' % (core_type), 'File url: %s' % (darwin_core_endpoint['url']))
 
