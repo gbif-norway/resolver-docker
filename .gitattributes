@@ -1,0 +1,2 @@
+website/tests/*.txt filter=lfs diff=lfs merge=lfs -text
+website/tests/*.gz filter=lfs diff=lfs merge=lfs -text
