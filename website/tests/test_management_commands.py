@@ -5,6 +5,7 @@ import responses
 from unittest import mock
 from website.management.commands import _gbif_api
 from django.core import mail
+from website.models import DarwinCoreObject
 from io import StringIO
 from django.db import connection
 import datetime
@@ -15,15 +16,13 @@ class PopulateResolverTest(TestCase):
 
     @responses.activate
     def test_adds_records_to_resolver(self):
+        self.assertEqual(DarwinCoreObject.objects.count(), 0)
         self._mock_get_dataset_list()
         self._mock_get_dataset_endpoints()
         with open('website/tests/occurrence_test_file_small.txt') as file_obj:
             with mock.patch('website.management.commands._gbif_api.get_cores_from_ipt', return_value=[('occurrence', file_obj)]):
                 call_command('populate_resolver', stdout=StringIO())
-
-        with connection.cursor() as cursor:
-            cursor.execute("SELECT COUNT(*) FROM replacement_table")
-            self.assertEqual(cursor.fetchone()[0], 5000)
+        self.assertEqual(DarwinCoreObject.objects.count(), 5000)
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].subject, '[Django] Resolver import complete %s' % datetime.datetime.now().strftime("%Y-%m-%d"))
         self.assertIn(mail.outbox[0].body, 'Total number of rows imported 5000')
@@ -42,16 +41,14 @@ class PopulateResolverTest(TestCase):
 
     @responses.activate
     def test_still_adds_records_for_other_valid_cores_with_bad_core(self):
+        self.assertEqual(DarwinCoreObject.objects.count(), 0)
         self._mock_get_dataset_list()
         self._mock_get_dataset_endpoints()
         with open('website/tests/occurrence_test_file_small.txt') as file_obj:
             cores = [('incorrect_core_type', StringIO('file_obj')), ('occurrence', file_obj)]
             with mock.patch('website.management.commands._gbif_api.get_cores_from_ipt', return_value=cores):
                 call_command('populate_resolver', stdout=StringIO())
-
-        with connection.cursor() as cursor:
-            cursor.execute("SELECT COUNT(*) FROM replacement_table")
-            self.assertEqual(cursor.fetchone()[0], 5000)
+        self.assertEqual(DarwinCoreObject.objects.count(), 5000)
 
     @responses.activate
     def test_no_records_added_triggers_email(self):

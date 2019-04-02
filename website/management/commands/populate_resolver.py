@@ -24,16 +24,25 @@ class Command(BaseCommand):
                     if count_of_added:
                         total_added += count_of_added
                     else:
-                        self._email_error('No items added for %s' % (core_type), 'File : %s' % (darwin_core_endpoint['url']))
+                        self._email_admins('No items added for %s' % (core_type), 'File : %s' % (darwin_core_endpoint['url']))
                 else:
-                    self._email_error('Core type not supported: %s' % (core_type), 'File url: %s' % (darwin_core_endpoint['url']))
+                    self._email_admins('Core type not supported: %s' % (core_type), 'File url: %s' % (darwin_core_endpoint['url']))
 
-        self._email_error('Resolver import complete %s' % datetime.datetime.now().strftime("%Y-%m-%d"), 'Total number of rows imported %s' % total_added)
+        self._email_admins('Resolver import complete %s' % datetime.datetime.now().strftime("%Y-%m-%d"), 'Total number of rows imported %s' % total_added)
 
-    def _email_error(self, subject, message):
+        # At this stage there is a replacement_table with all records needing to populate the resolver.
+        with connection.cursor() as cursor:
+            drop_table_sql = 'DROP TABLE IF EXISTS website_darwincoreobject'
+            cursor.execute(drop_table_sql)
+            rename_table_sql = 'ALTER TABLE replacement_table RENAME TO website_darwincoreobject'
+            cursor.execute(rename_table_sql)
+
+    def _email_admins(self, subject, message):
         mail.mail_admins(subject, message, fail_silently=True)
 
     def _create_replacement_table(self):
         with connection.cursor() as cursor:
+            drop_table_sql = 'DROP TABLE IF EXISTS replacement_table'
+            cursor.execute(drop_table_sql)
             create_table_sql = 'CREATE TABLE replacement_table (uuid uuid, data jsonb)'
             cursor.execute(create_table_sql)
