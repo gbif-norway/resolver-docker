@@ -2,6 +2,7 @@ from website.management.commands import _darwin_core_processing
 from django.test import TestCase
 from django.db import connection
 from io import StringIO
+import gzip
 
 class DarwinCoreProcessingTest(TestCase):
     def test_get_core_id(self):
@@ -20,9 +21,9 @@ class DarwinCoreProcessingTest(TestCase):
     def test_copy_csv_to_replacement_table_large(self):
         with connection.cursor() as cursor:
             cursor.execute("CREATE TABLE replacement_table (uuid uuid, data jsonb)")
-        with open('website/tests/occurrence_test_file_large.txt') as file_obj:
+        with gzip.open('website/tests/occurrence_test_file_large.txt.gz', 'rt') as file_obj:
             count = _darwin_core_processing.copy_csv_to_replacement_table(file_obj, 'occurrenceid')
-        self.assertEqual(count, 3403810)
+        self.assertEqual(count, 1700000)
 
     def test_get_columns(self):
         heading_string = "HEADING1,\tHeading,heading\theading3\theading4\t"
