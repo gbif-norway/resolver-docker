@@ -9,13 +9,32 @@ class ResolverViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
 
     def test_displays_data_given_valid_uuid(self):
-        uuid = '5c0884ce-608c-4716-ba0e-cb389dca5580'
-        obj_1 = DarwinCoreObject.objects.create(uuid=uuid, data={'id': uuid, 'type': 'occurrence'})
-        response = self.client.get(reverse('detail', args=[uuid]))
-        response_string = response.content.decode('utf-8').lower()
+        response_string = self._simple_request('text/html')
         self.assertTrue('occurrence' in response_string)
-        self.assertTrue(uuid in response_string)
+        self.assertTrue('5c0884ce-608c-4716-ba0e-cb389dca5580' in response_string)
 
     def test_displays_404_given_invalid_uuid(self):
         response = self.client.get(reverse('detail', args=['00000000-0000-0000-0000-000000000000']))
         self.assertContains(response, 'not found', status_code=404)
+
+    def test_renders_json(self):
+        response_string = self._simple_request('application/json')
+        self.assertTrue('occurrence' in response_string)
+        self.assertTrue('5c0884ce-608c-4716-ba0e-cb389dca5580' in response_string)
+
+    def test_renders_n3(self):
+        response_string = self._simple_request('text/n3')
+        self.assertTrue('occurrence' in response_string)
+        self.assertTrue('5c0884ce-608c-4716-ba0e-cb389dca5580' in response_string)
+
+    def test_renders_xml(self):
+        response_string = self._simple_request('application/xml')
+        self.assertTrue('occurrence' in response_string)
+        self.assertTrue('5c0884ce-608c-4716-ba0e-cb389dca5580' in response_string)
+
+    def _simple_request(self, http_accept):
+        uuid = '5c0884ce-608c-4716-ba0e-cb389dca5580'
+        obj_1 = DarwinCoreObject.objects.create(uuid=uuid, data={'uuid': uuid, 'type': 'occurrence'})
+        response = self.client.get(reverse('detail', args=[uuid]), HTTP_ACCEPT=http_accept)
+        return response.content.decode('utf-8').lower()
+
