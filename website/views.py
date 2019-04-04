@@ -49,7 +49,7 @@ def graph(darwin_core_object):
     return Graph().parse(data=json.dumps(json_object), format='json-ld')
 
 def _n3(darwin_core_object):
-    return graph(darwin_core_object).serialize(format='n3')
+    return HttpResponse(graph(darwin_core_object).serialize(), content_type='text/n3')
 
 def _rdf(darwin_core_object):
     return HttpResponse(graph(darwin_core_object).serialize(), content_type='application/rdf+xml')
