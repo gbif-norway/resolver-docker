@@ -12,10 +12,12 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         total_added = 0
         self._create_replacement_table()
-        for dataset in _gbif_api.get_dataset_list():
+        dataset_list = _gbif_api.get_dataset_list()
+        for dataset in dataset_list:
             endpoints = _gbif_api.get_dataset_endpoints(dataset['key'])
             darwin_core_endpoint = _gbif_api.get_dwc_endpoint(endpoints)
-
+            if not darwin_core_endpoint: # I.e. it is a metadata only endpoint
+                continue
             cores = _gbif_api.get_cores_from_ipt(darwin_core_endpoint['url'])
             for core_type, file_obj in cores:
                 core_id_key = _darwin_core_processing.get_core_id(core_type)

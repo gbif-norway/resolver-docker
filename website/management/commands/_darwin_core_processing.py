@@ -23,7 +23,7 @@ def copy_csv_to_replacement_table(file_obj, id_column):
     return count[0]
 
 def get_columns(first_line):
-    return first_line.rstrip().lower().split('\t')
+    return first_line.decode("utf-8").rstrip().lower().split('\t')
 
 def create_temp_table(cursor, columns):
     sql = 'CREATE TABLE temp ("' + '" text, "'.join(columns) + '" text);'

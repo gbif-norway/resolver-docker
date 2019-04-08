@@ -51,7 +51,10 @@ class GbifApiTest(TestCase):
 
     def test_get_dwc_endpoint(self):
         self.assertEqual(_gbif_api.get_dwc_endpoint(self.endpoints_example), self.endpoints_example[1])
-    # TODO also generate error if endpoint does not list DWC?
+
+    def test_get_dwc_endpoint_fail(self):
+        metadata_endpoint = [{'key': 364340, 'type': 'EML', 'url': 'http://data.nina.no:8080/ipt/eml.do?r=opensea_seabirds'}]
+        self.assertEqual(_gbif_api.get_dwc_endpoint(metadata_endpoint), False)
 
     @responses.activate
     def test_get_cores_from_ipt(self):
@@ -61,6 +64,7 @@ class GbifApiTest(TestCase):
 
         cores = _gbif_api.get_cores_from_ipt(url)
         self.assertEqual(len(cores), 1)
+        self.assertEqual(cores[0][0], 'occurrence')
         retrieved_first_line = cores[0][1].readline()
         first_line = b'id\tmodified\tinstitutionCode\tcollectionCode\tbasisOfRecord\toccurrenceID\tcatalogNumber\trecordedBy\tindividualCount\tsex\tpreparations\totherCatalogNumbers\tassociatedMedia\tsamplingProtocol\teventTime\tyear\tmonth\tday\thabitat\tfieldNumber\teventRemarks\tcontinent\tcountry\tstateProvince\tcounty\tlocality\tminimumElevationInMeters\tmaximumElevationInMeters\tminimumDepthInMeters\tmaximumDepthInMeters\tdecimalLatitude\tdecimalLongitude\tcoordinateUncertaintyInMeters\tidentifiedBy\tdateIdentified\ttypeStatus\tscientificName\tkingdom\tphylum\tclass\torder\tfamily\tgenus\tspecificEpithet\tinfraspecificEpithet\tscientificNameAuthorship\n'
         self.assertEqual(len(responses.calls), 1)

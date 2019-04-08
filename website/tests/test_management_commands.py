@@ -9,6 +9,7 @@ from website.models import DarwinCoreObject
 from io import StringIO
 from django.db import connection
 import datetime
+from zipfile import ZipFile
 
 class PopulateResolverTest(TestCase):
     GBIF_API_DATASET_URL = "https://api.gbif.org/v1/dataset/{}"
@@ -19,9 +20,10 @@ class PopulateResolverTest(TestCase):
         self.assertEqual(DarwinCoreObject.objects.count(), 0)
         self._mock_get_dataset_list()
         self._mock_get_dataset_endpoints()
-        with open('website/tests/occurrence_test_file_small.txt') as file_obj:
-            with mock.patch('website.management.commands._gbif_api.get_cores_from_ipt', return_value=[('occurrence', file_obj)]):
-                call_command('populate_resolver', stdout=StringIO())
+        with open('website/tests/occurrence_test_file_small.txt.zip', 'rb') as dwc_zip_stream:
+              responses.add(responses.GET, self.endpoints_example[0]['url'], body=dwc_zip_stream.read(), status=200, content_type='application/zip', stream=True)
+        out = StringIO()
+        call_command('populate_resolver', stdout=out)
         self.assertEqual(DarwinCoreObject.objects.count(), 5000)
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].subject, '[Django] Resolver import complete %s' % datetime.datetime.now().strftime("%Y-%m-%d"))
@@ -44,11 +46,21 @@ class PopulateResolverTest(TestCase):
         self.assertEqual(DarwinCoreObject.objects.count(), 0)
         self._mock_get_dataset_list()
         self._mock_get_dataset_endpoints()
-        with open('website/tests/occurrence_test_file_small.txt') as file_obj:
-            cores = [('incorrect_core_type', StringIO('file_obj')), ('occurrence', file_obj)]
+        with ZipFile('website/tests/occurrence_test_file_small.txt.zip', 'r') as file_obj:
+            cores = [('incorrect_core_type', StringIO('file_obj')), ('occurrence', file_obj.open('occurrence.txt'))]
             with mock.patch('website.management.commands._gbif_api.get_cores_from_ipt', return_value=cores):
                 call_command('populate_resolver', stdout=StringIO())
         self.assertEqual(DarwinCoreObject.objects.count(), 5000)
+
+    @responses.activate
+    def test_skips_metadata_only_endpoints(self):
+        self.assertEqual(DarwinCoreObject.objects.count(), 0)
+        self._mock_get_dataset_list()
+        url = self.GBIF_API_DATASET_URL.format('d34ed8a4-d3cb-473c-a11c-79c5fec4d649')
+        endpoints_example = [{'type': 'EML', 'url': 'http://'}, {'type': 'EML_2', 'url': 'http://'}]
+        responses.add(responses.GET, url, json={'key':'d34ed8a4-d3cb-473c-a11c-79c5fec4d649', 'endpoints': endpoints_example}, status=200)
+        call_command('populate_resolver', stdout=StringIO())
+        self.assertEqual(DarwinCoreObject.objects.count(), 0)
 
     @responses.activate
     def test_no_records_added_triggers_email(self):

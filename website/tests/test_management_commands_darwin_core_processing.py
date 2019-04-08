@@ -3,10 +3,12 @@ from django.test import TestCase
 from django.db import connection
 from io import StringIO
 import gzip
+from zipfile import ZipFile
 
 class DarwinCoreProcessingTest(TestCase):
     def test_get_core_id(self):
         self.assertEqual('measurementid', _darwin_core_processing.get_core_id('measurementorfact'))
+        self.assertEqual('occurrenceid', _darwin_core_processing.get_core_id('occurrence'))
 
     def test_get_core_id_fail(self):
         self.assertEqual(False, _darwin_core_processing.get_core_id('measurement'))
@@ -14,8 +16,8 @@ class DarwinCoreProcessingTest(TestCase):
     def test_copy_csv_to_replacement_table_small(self):
         with connection.cursor() as cursor:
             cursor.execute("CREATE TABLE replacement_table (uuid uuid, data jsonb)")
-        with open('website/tests/occurrence_test_file_small.txt') as file_obj:
-            count = _darwin_core_processing.copy_csv_to_replacement_table(file_obj, 'occurrenceid')
+        with ZipFile('website/tests/occurrence_test_file_small.txt.zip', 'r') as file_obj:
+            count = _darwin_core_processing.copy_csv_to_replacement_table(file_obj.open('occurrence.txt'), 'occurrenceid')
         self.assertEqual(count, 5000)
 
     def test_copy_csv_to_replacement_table_large(self):
@@ -27,7 +29,7 @@ class DarwinCoreProcessingTest(TestCase):
         self.assertEqual(count, 1700000)
 
     def test_get_columns(self):
-        heading_string = "HEADING1,\tHeading,heading\theading3\theading4\t"
+        heading_string = b'HEADING1,\tHeading,heading\theading3\theading4\t'
         headings_result = ['heading1,', 'heading,heading', 'heading3', 'heading4']
         self.assertEqual(headings_result, _darwin_core_processing.get_columns(heading_string))
 

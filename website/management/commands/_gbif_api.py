@@ -28,7 +28,8 @@ def get_dataset_endpoints(dataset_key):
         return []
 
 def get_dwc_endpoint(endpoints):
-    return next(endpoint for endpoint in endpoints if endpoint['type'] == 'DWC_ARCHIVE')
+    darwin_core_endpoints = [endpoint for endpoint in endpoints if endpoint['type'] == 'DWC_ARCHIVE']
+    return next(iter(darwin_core_endpoints), False)
 
 def get_cores_from_ipt(url):
     try:
@@ -38,7 +39,7 @@ def get_cores_from_ipt(url):
             file_names = zipfile.namelist()
 
             # Returns e.g. [('occurrence', fileobj), ('multimedia', fileobj)] for occurrence.txt and multimedia.txt files
-            return [(fn[:-3], zipfile.open(fn)) for fn in file_names if fn[-3:] == 'txt']
+            return [(fn[:-4], zipfile.open(fn)) for fn in file_names if fn[-3:] == 'txt']
     except requests.exceptions.RequestException as e:
         _email_error(e)
         return []
