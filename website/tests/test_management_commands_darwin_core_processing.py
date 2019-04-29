@@ -89,7 +89,7 @@ class DarwinCoreProcessingTest(TestCase):
             cursor.execute("INSERT INTO temp VALUES ('', 'a', 'b')")
             _darwin_core_processing.drop_invalid_uuids(cursor)
             cursor.execute("SELECT * FROM temp")
-            self.assertEqual(cursor.fetchall(), [('urn:uuid:ba128c35-5e8f-408f-8597-00b1972dace1', 'a', 'b'), ('aa128c35-5e8f-408f-8597-00b1972dace1', 'a', 'b')])
+            self.assertEqual(cursor.fetchall(), [('ba128c35-5e8f-408f-8597-00b1972dace1', 'a', 'b'), ('aa128c35-5e8f-408f-8597-00b1972dace1', 'a', 'b')])
 
     def test_insert_json_into_replacement_table(self):
         with connection.cursor() as cursor:
