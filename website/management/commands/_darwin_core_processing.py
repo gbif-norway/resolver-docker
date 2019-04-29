@@ -26,7 +26,7 @@ def get_columns(first_line):
     return first_line.decode("utf-8").rstrip().lower().split('\t')
 
 def create_temp_table(cursor, columns):
-    sql = 'CREATE TABLE temp ("' + '" text, "'.join(columns) + '" text);'
+    sql = 'DROP TABLE IF EXISTS temp; CREATE TABLE temp ("' + '" text, "'.join(columns) + '" text);'
     cursor.execute(sql)
 
 def insert_file(cursor, file_obj):

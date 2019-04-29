@@ -42,6 +42,15 @@ class DarwinCoreProcessingTest(TestCase):
             self.assertEqual(len(results), 0)
             self.assertEqual(headings, [col[0] for col in cursor.description])
 
+    def test_create_temp_table_with_previously_existing_table(self):
+        with connection.cursor() as cursor:
+            cursor.execute("CREATE TABLE temp (test text)")
+            headings = ['heading1', 'heading2', 'heading3', 'heading4']
+            _darwin_core_processing.create_temp_table(cursor, headings)
+            temp = cursor.execute('SELECT * FROM temp')
+            results = cursor.fetchall()
+            self.assertEqual(headings, [col[0] for col in cursor.description])
+
     def test_insert_file(self):
         mock_file_content = [('abc', 'def', 'hij'), ('klm', 'nop', 'qrs'), ('tuv', 'wxy', 'z')]
         mock_file_string = 'abc\tdef\thij\nklm\tnop\tqrs\ntuv\twxy\tz'  # '\n'.join(['\t'.join(row) for row in mock_file_content])
