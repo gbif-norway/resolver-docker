@@ -4,6 +4,7 @@ from django.db import connection
 from io import StringIO
 import gzip
 from zipfile import ZipFile
+import uuid
 
 class DarwinCoreProcessingTest(TestCase):
     def test_get_core_id(self):
@@ -35,7 +36,7 @@ class DarwinCoreProcessingTest(TestCase):
 
     def test_create_temp_table(self):
         with connection.cursor() as cursor:
-            headings = ['heading1', 'heading2', 'heading3', 'heading4']
+            headings = ['heading1', 'heading2', 'order', 'heading4']
             _darwin_core_processing.create_temp_table(cursor, headings)
             temp = cursor.execute('SELECT * FROM temp')
             results = cursor.fetchall()
@@ -45,7 +46,7 @@ class DarwinCoreProcessingTest(TestCase):
     def test_create_temp_table_with_previously_existing_table(self):
         with connection.cursor() as cursor:
             cursor.execute("CREATE TABLE temp (test text)")
-            headings = ['heading1', 'heading2', 'heading3', 'heading4']
+            headings = ['heading1', 'heading2', 'order', 'heading4']
             _darwin_core_processing.create_temp_table(cursor, headings)
             temp = cursor.execute('SELECT * FROM temp')
             results = cursor.fetchall()
@@ -92,17 +93,16 @@ class DarwinCoreProcessingTest(TestCase):
 
     def test_insert_json_into_replacement_table(self):
         with connection.cursor() as cursor:
-            columns = ['occurrenceid', 'heading2', 'heading3']
             cursor.execute("CREATE TABLE replacement_table (uuid uuid, data jsonb)")
             cursor.execute("""INSERT INTO replacement_table VALUES (UUID('f2f84497-b3bf-493a-bba9-7c68e6def80b'), '{"some_data": "some_value"}')""")
             cursor.execute("SELECT COUNT(*) FROM replacement_table")
             self.assertEqual(cursor.fetchone()[0], 1)
-            cursor.execute("CREATE TABLE temp (id text, occurrenceid text, heading2 text, heading3 text)")
+            columns = ['occurrenceid', 'order', 'heading3']
+            cursor.execute('CREATE TABLE temp (id text, occurrenceid text, "order" text, heading3 text)')
             cursor.execute("INSERT INTO temp VALUES ('ba128c35-5e8f-408f-8597-00b1972dace1', 'urn:uuid:ba128c35-5e8f-408f-8597-00b1972dace1', 'a', 'b')")
             _darwin_core_processing.insert_json_into_replacement_table(cursor, columns)
             cursor.execute("SELECT * FROM replacement_table")
-            import uuid
             results = [(uuid.UUID('f2f84497-b3bf-493a-bba9-7c68e6def80b'), {'some_data': 'some_value'}),
-                (uuid.UUID('ba128c35-5e8f-408f-8597-00b1972dace1'), {'occurrenceid': 'urn:uuid:ba128c35-5e8f-408f-8597-00b1972dace1', 'heading2': 'a', 'heading3': 'b'})]
+                (uuid.UUID('ba128c35-5e8f-408f-8597-00b1972dace1'), {'occurrenceid': 'urn:uuid:ba128c35-5e8f-408f-8597-00b1972dace1', 'order': 'a', 'heading3': 'b'})]
             self.assertEqual(cursor.fetchall(), results)
 

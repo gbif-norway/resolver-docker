@@ -45,7 +45,7 @@ def drop_invalid_uuids(cursor):
     cursor.execute(drop_invalid_uuids)
 
 def insert_json_into_replacement_table(cursor, columns):
-    json_columns = ["'%s', %s" % (key, key) for key in columns]
+    json_columns = ["'%s', \"%s\"" % (key, key) for key in columns]
     make_json_sql = "SELECT uuid(id) AS uuid, json_build_object(" + ', '.join(json_columns) + ") AS data FROM temp;"
     insert_sql = "INSERT INTO replacement_table(uuid, data) " + make_json_sql
     cursor.execute(insert_sql)
