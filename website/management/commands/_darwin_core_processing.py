@@ -12,13 +12,19 @@ def get_core_id(core_type):
 def copy_csv_to_replacement_table(file_obj, id_column):
     with connection.cursor() as cursor:
         create_temp_table(cursor, get_columns(file_obj.readline()))
+        print('created temp table')
         insert_file(cursor, file_obj)
+        print('inserted file')
         create_id_column(cursor, id_column)
+        print('created id col')
         drop_invalid_uuids(cursor)
+        print('dropped invalid ids')
         insert_json_into_replacement_table(cursor)
+        print('inserted into replacement table')
         cursor.execute("SELECT COUNT(*) FROM temp")
         count = cursor.fetchone()
         cursor.execute('DROP TABLE temp')
+        print(count[0])
     return count[0]
 
 def get_columns(first_line):
