@@ -10,13 +10,12 @@ def get_core_id(core_type):
          return False
 
 def copy_csv_to_replacement_table(file_obj, id_column):
-    columns = get_columns(file_obj.readline())
     with connection.cursor() as cursor:
-        create_temp_table(cursor, columns)
+        create_temp_table(cursor, get_columns(file_obj.readline()))
         insert_file(cursor, file_obj)
         create_id_column(cursor, id_column)
         drop_invalid_uuids(cursor)
-        insert_json_into_replacement_table(cursor, columns)
+        insert_json_into_replacement_table(cursor)
         cursor.execute("SELECT COUNT(*) FROM temp")
         count = cursor.fetchone()
         cursor.execute('DROP TABLE temp')
@@ -47,9 +46,8 @@ def drop_invalid_uuids(cursor):
     remove_uuid_prefix = "UPDATE temp SET id = REPLACE(id, 'urn:uuid:', '')"
     cursor.execute(remove_uuid_prefix)
 
-def insert_json_into_replacement_table(cursor, columns):
-    json_columns = ["'%s', \"%s\"" % (key, key) for key in columns]
-    make_json_sql = "SELECT uuid(id) AS uuid, json_build_object(" + ', '.join(json_columns) + ") AS data FROM temp;"
+def insert_json_into_replacement_table(cursor):
+    make_json_sql = "SELECT uuid(id) AS uuid, row_to_json(temp) AS data FROM temp;"
     insert_sql = "INSERT INTO replacement_table(uuid, data) " + make_json_sql
     cursor.execute(insert_sql)
 
