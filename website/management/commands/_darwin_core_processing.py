@@ -40,7 +40,7 @@ def create_id_column(cursor, id_column):
     cursor.execute("UPDATE temp SET id = %s" % (id_column))
 
 def drop_invalid_uuids(cursor):
-    drop_invalid_uuids = "DELETE FROM temp WHERE id !~ '([urnURN]+:[a-zA-Z]+:)?[0-9a-z]{8}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{12}$'"
+    drop_invalid_uuids = "DELETE FROM temp WHERE id !~ '^([urnURN]+:[a-zA-Z]+:)?[0-9a-z]{8}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{12}$'"
     cursor.execute(drop_invalid_uuids)
     # TODO put uuid prefix in separate col? https://stackoverflow.com/questions/49381318/python-uuid-handle-urn-with-namespace
     remove_uuid_prefix = "UPDATE temp SET id = REPLACE(id, 'urn:uuid:', '')"
