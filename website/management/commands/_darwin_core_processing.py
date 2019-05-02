@@ -12,19 +12,17 @@ def get_core_id(core_type):
 def copy_csv_to_replacement_table(file_obj, id_column):
     with connection.cursor() as cursor:
         create_temp_table(cursor, get_columns(file_obj.readline()))
-        print('created temp table')
-        insert_file(cursor, file_obj)
-        print('inserted file')
+        try:
+            # On a test run 3/309 files would not insert TODO find out why, maybe weird char formatting?
+            insert_file(cursor, file_obj)
+        except:
+            return 0
         create_id_column(cursor, id_column)
-        print('created id col')
         drop_invalid_uuids(cursor)
-        print('dropped invalid ids')
         insert_json_into_replacement_table(cursor)
-        print('inserted into replacement table')
         cursor.execute("SELECT COUNT(*) FROM temp")
         count = cursor.fetchone()
         cursor.execute('DROP TABLE temp')
-        print(count[0])
     return count[0]
 
 def get_columns(first_line):
@@ -46,7 +44,7 @@ def create_id_column(cursor, id_column):
     cursor.execute("UPDATE temp SET id = %s" % (id_column))
 
 def drop_invalid_uuids(cursor):
-    drop_invalid_uuids = "DELETE FROM temp WHERE id !~ '^([urnURN]+:[a-zA-Z]+:)?[0-9a-z]{8}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{12}$'"
+    drop_invalid_uuids = "DELETE FROM temp WHERE id !~ '^([urnURN]+:[a-fA-F]+:)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'"
     cursor.execute(drop_invalid_uuids)
     # TODO put uuid prefix in separate col? https://stackoverflow.com/questions/49381318/python-uuid-handle-urn-with-namespace
     remove_uuid_prefix = "UPDATE temp SET id = REPLACE(id, 'urn:uuid:', '')"

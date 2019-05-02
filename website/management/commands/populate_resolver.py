@@ -14,19 +14,14 @@ class Command(BaseCommand):
         self._create_replacement_table()
         dataset_list = _gbif_api.get_dataset_list()
         for dataset in dataset_list:
-            print(dataset['key'])
             endpoints = _gbif_api.get_dataset_endpoints(dataset['key'])
             darwin_core_endpoint = _gbif_api.get_dwc_endpoint(endpoints)
             if not darwin_core_endpoint: # I.e. it is a metadata only endpoint
                 continue
-            print(darwin_core_endpoint['url'])
             cores = _gbif_api.get_cores_from_ipt(darwin_core_endpoint['url'])
-            print('got cores')
             for core_type, file_obj in cores:
-                print(core_type)
                 core_id_key = _darwin_core_processing.get_core_id(core_type)
                 if core_id_key:
-                    print(core_id_key)
                     count_of_added = _darwin_core_processing.copy_csv_to_replacement_table(file_obj, core_id_key)
                     if count_of_added:
                         total_added += count_of_added

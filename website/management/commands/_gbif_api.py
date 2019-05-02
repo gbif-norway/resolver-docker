@@ -34,17 +34,12 @@ def get_dwc_endpoint(endpoints):
 def get_cores_from_ipt(url):
     try:
         response = requests.get(url, stream=True)
-        #response.raise_for_status()
         with open('/tmp/tmp.zip', 'wb') as fd:
             for chunk in response.iter_content(5000):
                 fd.write(chunk)
-        print('finished writing')
-        #with ZipFile(BytesIO(response.content)) as zipfile:
         with ZipFile('/tmp/tmp.zip') as zipfile:
             file_names = zipfile.namelist()
-            print('got namelist')
             file_objects_and_names = [(fn[:-4], zipfile.open(fn)) for fn in file_names if fn[-3:] == 'txt']
-            print('got file objects and names')
             # Returns e.g. [('occurrence', fileobj), ('multimedia', fileobj)] for occurrence.txt and multimedia.txt files
             return file_objects_and_names
     except requests.exceptions.RequestException as e:
