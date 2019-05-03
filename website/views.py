@@ -26,10 +26,10 @@ def detail(request, uuid):
     }
 
     content_type = request.META.get("HTTP_ACCEPT")
-    if content_type in mime_types:
-        return mime_types[content_type]
-    else:
-        return HttpResponse('Unrecognised MIME type in request headers')
+    for mime_type, content_response in mime_types.items():
+        if mime_type in content_type:
+            return content_response
+    return HttpResponse('Unrecognised MIME type in request headers')
 
 def _html(request, darwin_core_object):
     return render(request, 'detail.html', {'darwin_core_object': darwin_core_object})
