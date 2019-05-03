@@ -34,6 +34,7 @@ def get_dwc_endpoint(endpoints):
 def get_cores_from_ipt(url):
     try:
         response = requests.get(url, stream=True)
+        response.raise_for_status()
         with open('/tmp/tmp.zip', 'wb') as fd:
             for chunk in response.iter_content(5000):
                 fd.write(chunk)
