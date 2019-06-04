@@ -1,0 +1,1 @@
+dwc_archive_test_file.zip filter=lfs diff=lfs merge=lfs -text
