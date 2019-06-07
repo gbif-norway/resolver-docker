@@ -1,16 +1,14 @@
 {% extends "base.html" %}
 {% block content %}
 <p>GBIF.no's resolver resolves any individual occurrence, sampling event, measurement or fact data with valid UUIDs published by Norwegian publishers on <a href="http://gbif.org">gbif.org</a>.</p>
-<form>
-  <div class="form-group row">
+  <div class="row">
       <div class="col-sm-10">
         <div class="input-group">
             <div class="input-group-prepend"><div class="input-group-text">urn:uuid:</div></div>
             <input type="text" class="form-control" id="uuid" placeholder="e.g. 0a45631e-8232-4b00-966d-e71592f77c2b">
         </div>
       </div>
-      <button type="submit" class="btn btn-primary col-sm-2">Resolve</button>
+      <button type="submit" onclick="window.location=$('#uuid').val()" class="btn btn-primary col-sm-2">Resolve</button>
   </div>
-</form>
 <p>{{ total_records }} records in the resolver</p>
 {% endblock %}
