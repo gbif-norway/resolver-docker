@@ -7,7 +7,8 @@ from django.forms.models import model_to_dict
 import json
 
 def index(request):
-    return HttpResponse('Resolver')
+    context = {'total_records': DarwinCoreObject.objects.all().count()}
+    return render(request, 'index.html', context )
 
 def detail(request, uuid):
     darwin_core_object = get_object_or_404(DarwinCoreObject, uuid=uuid)
