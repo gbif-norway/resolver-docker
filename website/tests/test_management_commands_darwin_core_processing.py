@@ -29,6 +29,11 @@ class DarwinCoreProcessingTest(TestCase):
             count = _darwin_core_processing.copy_csv_to_replacement_table(file_obj, 'occurrenceid')
         self.assertEqual(count, 1700000)
 
+    def test_copy_csv_to_replacement_table_with_no_id_adds_no_records(self):
+        with ZipFile('website/tests/occurrence_test_file_small.txt.zip', 'r') as file_obj:
+            count = _darwin_core_processing.copy_csv_to_replacement_table(file_obj.open('occurrence.txt'), 'eventid')
+        self.assertEqual(count, 0)
+
     def test_get_columns(self):
         heading_string = b'HEADING1,\tHeading,heading\theading3\theading4\t'
         headings_result = ['heading1,', 'heading,heading', 'heading3', 'heading4']
@@ -62,23 +67,23 @@ class DarwinCoreProcessingTest(TestCase):
             cursor.execute("SELECT * FROM temp")
             self.assertEqual(cursor.fetchall(), mock_file_content)
 
-    def test_create_id_column_add_id(self):
+    def test_sync_id_column_add_new_id_col(self):
         with connection.cursor() as cursor:
-            cursor.execute("CREATE TABLE temp (occurrenceid text, heading2 text, heading3 text)")
+            cursor.execute("CREATE TABLE temp (eventid text, heading2 text, heading3 text)")
             cursor.execute("INSERT INTO temp VALUES ('urn:uuid:ba128c35-5e8f-408f-8597-00b1972dace1', 'a', 'b')")
-            _darwin_core_processing.create_id_column(cursor, 'occurrenceid')
+            _darwin_core_processing.sync_id_column(cursor, 'eventid')
             cursor.execute('SELECT * FROM temp')
             columns = [col[0] for col in cursor.description]
-            self.assertEqual(dict(zip(columns, cursor.fetchone())), {'occurrenceid': 'urn:uuid:ba128c35-5e8f-408f-8597-00b1972dace1', 'id': 'urn:uuid:ba128c35-5e8f-408f-8597-00b1972dace1', 'heading2': 'a', 'heading3': 'b'})
+            self.assertEqual(dict(zip(columns, cursor.fetchone())), {'eventid': 'urn:uuid:ba128c35-5e8f-408f-8597-00b1972dace1', 'id': 'urn:uuid:ba128c35-5e8f-408f-8597-00b1972dace1', 'heading2': 'a', 'heading3': 'b'})
 
-    def test_create_id_column_add_id(self):
+    def test_sync_id_column_replace_id_col(self):
         with connection.cursor() as cursor:
-            cursor.execute("CREATE TABLE temp (id text, heading2 text, heading3 text)")
-            cursor.execute("INSERT INTO temp VALUES ('urn:uuid:ba128c35-5e8f-408f-8597-00b1972dace1', 'a', 'b')")
-            _darwin_core_processing.create_id_column(cursor, 'heading2')
+            cursor.execute("CREATE TABLE temp (id text, occurrenceid text,  heading2 text, heading3 text)")
+            cursor.execute("INSERT INTO temp VALUES ('urn:uuid:1', 'urn:uuid:2', 'a', 'b')")
+            _darwin_core_processing.sync_id_column(cursor, 'occurrenceid')
             cursor.execute('SELECT * FROM temp')
             columns = [col[0] for col in cursor.description]
-            self.assertEqual(dict(zip(columns, cursor.fetchone())), {'id': 'urn:uuid:ba128c35-5e8f-408f-8597-00b1972dace1', 'heading2': 'a', 'heading3': 'b'})
+            self.assertEqual(dict(zip(columns, cursor.fetchone())), {'id': 'urn:uuid:2','occurrenceid':'urn:uuid:2', 'heading2': 'a', 'heading3': 'b'})
 
     def test_drop_invalid_uuids(self):
         with connection.cursor() as cursor:
@@ -100,7 +105,6 @@ class DarwinCoreProcessingTest(TestCase):
             cursor.execute("SELECT * FROM replacement_table")
             results = [(uuid.UUID('ba128c35-5e8f-408f-8597-00b1972dace1'), {'id': 'ba128c35-5e8f-408f-8597-00b1972dace1', 'occurrenceid': 'ba128c35-5e8f-408f-8597-00b1972dace1', 'order': 'a', 'heading3': 'b'})]
             self.assertEqual(cursor.fetchall(), results)
-
 
     def test_insert_big_json_into_new_replacement_table(self):
         with connection.cursor() as cursor:

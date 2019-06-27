@@ -11,13 +11,16 @@ def get_core_id(core_type):
 
 def copy_csv_to_replacement_table(file_obj, id_column):
     with connection.cursor() as cursor:
-        create_temp_table(cursor, get_columns(file_obj.readline()))
+        columns = get_columns(file_obj.readline())
+        if id_column not in columns:
+            return 0
+        create_temp_table(cursor, columns)
         try:
             # On a test run 3/309 files would not insert TODO find out why, maybe weird char formatting?
             insert_file(cursor, file_obj)
         except:
             return 0
-        create_id_column(cursor, id_column)
+        sync_id_column(cursor, id_column)
         drop_invalid_uuids(cursor)
         insert_json_into_replacement_table(cursor)
         cursor.execute("SELECT COUNT(*) FROM temp")
@@ -36,11 +39,10 @@ def insert_file(cursor, file_obj):
     copy_sql = "COPY temp FROM stdin DELIMITER AS '\t'"
     cursor.copy_expert(sql=copy_sql, file=file_obj)
 
-def create_id_column(cursor, id_column):
-    cursor.execute("SELECT column_name FROM information_schema.columns WHERE table_name='temp' and column_name='id';")
-    if cursor.fetchone() == ('id',):
-        return
-    cursor.execute("ALTER TABLE temp ADD COLUMN id text")
+def sync_id_column(cursor, id_column):
+    cursor.execute("SELECT COUNT(*) FROM information_schema.columns WHERE table_name='temp' and column_name='id';")
+    if cursor.fetchone()[0] == 0:
+        cursor.execute("ALTER TABLE temp ADD COLUMN id text")
     cursor.execute("UPDATE temp SET id = %s" % (id_column))
 
 def drop_invalid_uuids(cursor):
