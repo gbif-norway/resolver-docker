@@ -8,7 +8,7 @@ import json
 
 from rest_framework import viewsets, renderers
 from .serializers import DarwinCoreObjectSerializer
-from .renderers import RDFRenderer
+from .renderers import RDFRenderer, JSONLDRenderer
 
 def index(request):
     context = {'total_records': DarwinCoreObject.objects.all().count()}
@@ -63,7 +63,7 @@ class DarwinCoreObjectViewSet(viewsets.ReadOnlyModelViewSet):
     """
     A ViewSet for reading Darwin Core Objects
     """
-    renderer_classes = (renderers.JSONRenderer, renderers.BrowsableAPIRenderer, RDFRenderer)
+    renderer_classes = (renderers.JSONRenderer, renderers.BrowsableAPIRenderer, JSONLDRenderer, RDFRenderer)
     queryset = DarwinCoreObject.objects.all()
     serializer_class = DarwinCoreObjectSerializer
 

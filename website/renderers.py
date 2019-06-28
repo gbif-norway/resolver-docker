@@ -29,3 +29,20 @@ class RDFRenderer(BaseRenderer):
         graphed_data = Graph().parse(data=json.dumps(json_object), format='json-ld')
         return graphed_data.serialize()
 
+
+class JSONLDRenderer(BaseRenderer):
+    """
+    Renderer which serializes to RDF - the Resource Descriptor Framework
+    """
+    media_type = 'application/ld+json'
+    format = 'ld+json'
+
+    def render(self, data, accepted_media_type=None, renderer_context=None):
+        """
+        Renders `data` into serialized RDF+XML
+        """
+        if data is None:
+            return ''
+        json_data = _json(data)
+        return json.dumps(json_data)
+
