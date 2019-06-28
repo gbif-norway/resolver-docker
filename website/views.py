@@ -6,6 +6,9 @@ from rdflib import Graph
 from django.forms.models import model_to_dict
 import json
 
+from rest_framework import viewsets
+from .serializers import DarwinCoreObjectSerializer
+
 def index(request):
     context = {'total_records': DarwinCoreObject.objects.all().count()}
     return render(request, 'index.html', context )
@@ -55,3 +58,9 @@ def _n3(darwin_core_object):
 def _rdf(darwin_core_object):
     return HttpResponse(graph(darwin_core_object).serialize(), content_type='application/rdf+xml')
 
+class DarwinCoreObjectViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    A ViewSet for reading Darwin Core Objects
+    """
+    queryset = DarwinCoreObject.objects.all()
+    serializer_class = DarwinCoreObjectSerializer

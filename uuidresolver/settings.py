@@ -23,7 +23,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = '_fwo$(&guk5^9+wk+scd*b&3nxe=fw=c9u1eci9v9fq17xgfu#'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = [os.environ.get('VIRTUAL_HOST', 'resolver.local')]
 
@@ -31,8 +31,11 @@ ALLOWED_HOSTS = [os.environ.get('VIRTUAL_HOST', 'resolver.local')]
 # Application definition
 
 INSTALLED_APPS = [
+    'django.contrib.contenttypes',
+    'django.contrib.auth',
     'website.apps.WebsiteConfig',
     'django.contrib.staticfiles',
+    'rest_framework',
 ]
 
 MIDDLEWARE = [
@@ -120,3 +123,16 @@ STATIC_URL = '/static/'
 ADMINS = (
   ('GBIF Norway', 'helpdesk@gbif.no'),
 )
+
+
+# REST Framework
+
+REST_FRAMEWORK = {
+    # Use Django's standard `django.contrib.auth` permissions,
+    # or allow read-only access for unauthenticated users.
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly'
+    ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 10
+}
