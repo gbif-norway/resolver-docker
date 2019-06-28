@@ -21,7 +21,5 @@ router = routers.DefaultRouter()
 router.register(r'dwc-objects', views.DarwinCoreObjectViewSet)
 
 urlpatterns = [
-        path('', views.index, name='index'),
-        path('<uuid:uuid>/', views.detail, name='detail'),
         path('', include(router.urls)),
 ]
