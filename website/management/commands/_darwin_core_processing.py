@@ -10,22 +10,34 @@ def get_core_id(core_type):
          return False
 
 def copy_csv_to_replacement_table(file_obj, id_column):
+    columns = get_columns(file_obj.readline())
+    if id_column not in columns:
+        return 0
+
     with connection.cursor() as cursor:
-        columns = get_columns(file_obj.readline())
-        if id_column not in columns:
-            return 0
         create_temp_table(cursor, columns)
+
+    with connection.cursor() as cursor:
         try:
             # On a test run 3/309 files would not insert TODO find out why, maybe weird char formatting?
             insert_file(cursor, file_obj)
         except:
             return 0
+
+    with connection.cursor() as cursor:
         sync_id_column(cursor, id_column)
+
+    with connection.cursor() as cursor:
         drop_invalid_uuids(cursor)
+
+    with connection.cursor() as cursor:
         insert_json_into_replacement_table(cursor)
+
+    with connection.cursor() as cursor:
         cursor.execute("SELECT COUNT(*) FROM temp")
         count = cursor.fetchone()
         cursor.execute('DROP TABLE temp')
+
     return count[0]
 
 def get_columns(first_line):
@@ -53,7 +65,11 @@ def drop_invalid_uuids(cursor):
     cursor.execute(remove_uuid_prefix)
 
 def insert_json_into_replacement_table(cursor):
-    make_json_sql = "SELECT uuid(id) AS uuid, row_to_json(temp) AS data FROM temp;"
+    # Do not insert duplicate uuids
+    make_json_sql = """SELECT uuid(id) AS uuid, row_to_json(temp) AS data
+                       FROM temp LEFT JOIN replacement_table
+                         ON replacement_table.uuid = CAST(temp.id AS UUID)
+                       WHERE replacement_table.uuid IS NULL;"""
     insert_sql = "INSERT INTO replacement_table(uuid, data) " + make_json_sql
     cursor.execute(insert_sql)
 

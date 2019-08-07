@@ -97,16 +97,18 @@ class DarwinCoreProcessingTest(TestCase):
             self.assertEqual(cursor.fetchall(), [('ba128c35-5e8f-408f-8597-00b1972dace1', 'a', 'b'), ('aa128c35-5e8f-408f-8597-00b1972dace1', 'a', 'b')])
 
     def test_insert_json_into_new_replacement_table(self):
+        # The first temp table which gets migrated to the replacement table will have this use case
         with connection.cursor() as cursor:
             cursor.execute('CREATE TABLE temp (id text, occurrenceid text, "order" text, heading3 text)')
             cursor.execute("INSERT INTO temp VALUES ('ba128c35-5e8f-408f-8597-00b1972dace1', 'ba128c35-5e8f-408f-8597-00b1972dace1', 'a', 'b')")
-            cursor.execute("CREATE TABLE replacement_table (uuid uuid, data jsonb)")
+            cursor.execute("CREATE TABLE replacement_table (uuid UUID PRIMARY KEY, data JSONB)")
             _darwin_core_processing.insert_json_into_replacement_table(cursor)
             cursor.execute("SELECT * FROM replacement_table")
             results = [(uuid.UUID('ba128c35-5e8f-408f-8597-00b1972dace1'), {'id': 'ba128c35-5e8f-408f-8597-00b1972dace1', 'occurrenceid': 'ba128c35-5e8f-408f-8597-00b1972dace1', 'order': 'a', 'heading3': 'b'})]
             self.assertEqual(cursor.fetchall(), results)
 
     def test_insert_big_json_into_new_replacement_table(self):
+        # A harder to read but more realistic version of test_insert_json_into_new_replacement_table
         with connection.cursor() as cursor:
             alphabet = list(map(chr, range(97, 123)))
             # Generate this: keys = alphabet + [letter + letter for letter in alphabet]
@@ -114,7 +116,7 @@ class DarwinCoreProcessingTest(TestCase):
             # keys[0] = 'id'
             cursor.execute("create table temp (id text, b text, c text, d text, e text, f text, g text, h text, i text, j text, k text, l text, m text, n text, o text, p text, q text, r text, s text, t text, u text, v text, w text, x text, y text, z text, aa text, bb text, cc text, dd text, ee text, ff text, gg text, hh text, ii text, jj text, kk text, ll text, mm text, nn text, oo text, pp text, qq text, rr text, ss text, tt text, uu text, vv text, ww text, xx text, yy text, zz text)")
             cursor.execute("insert into temp values ('ba128c35-5e8f-408f-8597-00b1972dace1', 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52)")
-            cursor.execute("create table replacement_table (uuid uuid, data jsonb)")
+            cursor.execute("CREATE TABLE replacement_table (uuid UUID PRIMARY KEY, data JSONB)")
             _darwin_core_processing.insert_json_into_replacement_table(cursor)
             cursor.execute("select * from replacement_table")
             results = [(uuid.UUID('ba128c35-5e8f-408f-8597-00b1972dace1'), {'id': 'ba128c35-5e8f-408f-8597-00b1972dace1' , 'b': '2', 'c': '3', 'd': '4', 'e': '5', 'f': '6', 'g': '7', 'h': '8', 'i': '9', 'j': '10', 'k': '11', 'l': '12', 'm': '13', 'n': '14', 'o': '15', 'p': '16', 'q': '17', 'r': '18', 's': '19', 't': '20', 'u': '21', 'v': '22', 'w': '23', 'x': '24', 'y': '25', 'z': '26', 'aa': '27', 'bb': '28', 'cc': '29', 'dd': '30', 'ee': '31', 'ff': '32', 'gg': '33', 'hh': '34', 'ii': '35', 'jj': '36', 'kk': '37', 'll': '38', 'mm': '39', 'nn': '40', 'oo': '41', 'pp': '42', 'qq': '43', 'rr': '44', 'ss': '45', 'tt': '46', 'uu': '47', 'vv': '48', 'ww': '49', 'xx': '50', 'yy': '51', 'zz': '52'})]
@@ -124,7 +126,7 @@ class DarwinCoreProcessingTest(TestCase):
         # As different dwc files are looped through (from different endpoints, or different files at the same endpoint), new sets of records will get inserted into replacement_table
         with connection.cursor() as cursor:
             # Pre existing replacement table
-            cursor.execute("CREATE TABLE replacement_table (uuid uuid, data jsonb)")
+            cursor.execute("CREATE TABLE replacement_table (uuid UUID PRIMARY KEY, data JSONB)")
             cursor.execute("""INSERT INTO replacement_table VALUES (UUID('f2f84497-b3bf-493a-bba9-7c68e6def80b'), '{"some_data": "some_value"}')""")
             cursor.execute("SELECT COUNT(*) FROM replacement_table")
             self.assertEqual(cursor.fetchone()[0], 1)
@@ -134,6 +136,25 @@ class DarwinCoreProcessingTest(TestCase):
             cursor.execute("INSERT INTO temp VALUES ('ba128c35-5e8f-408f-8597-00b1972dace1', 'ba128c35-5e8f-408f-8597-00b1972dace1', 'a', 'b')")
 
             # Test new values and existing values are in replacement table
+            _darwin_core_processing.insert_json_into_replacement_table(cursor)
+            cursor.execute("SELECT * FROM replacement_table")
+            results = [(uuid.UUID('f2f84497-b3bf-493a-bba9-7c68e6def80b'), {'some_data': 'some_value'}),
+                (uuid.UUID('ba128c35-5e8f-408f-8597-00b1972dace1'), {'occurrenceid': 'ba128c35-5e8f-408f-8597-00b1972dace1', 'id': 'ba128c35-5e8f-408f-8597-00b1972dace1', 'order': 'a', 'heading3': 'b'})]
+            self.assertEqual(cursor.fetchall(), results)
+
+    def test_insert_duplicate_ids_into_pre_existing_replacement_table(self):
+        # Sometimes an occurrence_id will be included in two different datasets. For the moment, the resolver will just provide the information from the first dataset
+        with connection.cursor() as cursor:
+            # Pre existing replacement table
+            cursor.execute("CREATE TABLE replacement_table (uuid UUID PRIMARY KEY, data JSONB)")
+            cursor.execute("""INSERT INTO replacement_table VALUES (UUID('f2f84497-b3bf-493a-bba9-7c68e6def80b'), '{"some_data": "some_value"}')""")
+
+            # New temp table with duplicate values
+            cursor.execute('CREATE TABLE temp (id text, occurrenceid text, "order" text, heading3 text)')
+            cursor.execute("INSERT INTO temp VALUES ('ba128c35-5e8f-408f-8597-00b1972dace1', 'ba128c35-5e8f-408f-8597-00b1972dace1', 'a', 'b')")
+            cursor.execute("INSERT INTO temp VALUES ('f2f84497-b3bf-493a-bba9-7c68e6def80b', 'ba128c35-5e8f-408f-8597-00b1972dace1', 'c', 'd')")
+
+            # Test no duplicates are in replacement table
             _darwin_core_processing.insert_json_into_replacement_table(cursor)
             cursor.execute("SELECT * FROM replacement_table")
             results = [(uuid.UUID('f2f84497-b3bf-493a-bba9-7c68e6def80b'), {'some_data': 'some_value'}),

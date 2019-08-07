@@ -46,5 +46,5 @@ class Command(BaseCommand):
         with connection.cursor() as cursor:
             drop_table_sql = 'DROP TABLE IF EXISTS replacement_table'
             cursor.execute(drop_table_sql)
-            create_table_sql = 'CREATE TABLE replacement_table (uuid uuid, data jsonb)'
+            create_table_sql = 'CREATE TABLE replacement_table (uuid UUID PRIMARY KEY, data JSONB)'
             cursor.execute(create_table_sql)
