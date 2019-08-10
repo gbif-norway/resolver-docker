@@ -10,6 +10,25 @@ class DarwinCoreObjectSerializer(serializers.HyperlinkedModelSerializer):
         ret = super().to_representation(instance)
         ret = ret['data']
         prefixed_object = {'dwc:%s' % key: value for key, value in ret.items()}
-        prefixed_object['@id'] = 'http://purl.org/gbifnorway/id/%s' % ret['id']
-        prefixed_object['@context'] = {'dc': 'http://purl.org/dc/elements/1.1/', 'dwc': 'http://rs.tdwg.org/dwc/terms/'}
+        prefixed_object['@context'] = {'dc': 'http://purl.org/dc/elements/1.1/', 'dwc': 'http://rs.tdwg.org/dwc/terms/', 'owl': 'https://www.w3.org/TR/owl-ref/'}
+
+        if 'id' in ret:
+            prefixed_object['@id'] = 'http://purl.org/gbifnorway/id/%s' % ret['id']
+            prefixed_object['owl:sameas'] = 'urn:uuid:%s' % prefixed_object['dwc:id']
+            del prefixed_object['dwc:id']
+
+        if 'dwc:sameas' in prefixed_object:
+            if 'dwc:type' in prefixed_object and prefixed_object['dwc:type'] == 'dataset':
+                prefixed_object['owl:sameas'] = 'https://doi.org/%s' % prefixed_object['dwc:sameas']
+            del prefixed_object['dwc:sameas']
+
+        if 'dwc:type' in prefixed_object:
+            prefixed_object['dc:type'] = prefixed_object['dwc:type']
+            del prefixed_object['dwc:type']
+
+        if 'dwc:label' in prefixed_object:
+            prefixed_object['rdfs:label'] = prefixed_object['dwc:label']
+            del prefixed_object['dwc:label']
+            prefixed_object['@context']['rdfs'] = 'https://www.w3.org/TR/rdf-schema/'
+
         return prefixed_object
