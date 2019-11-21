@@ -23,5 +23,3 @@ router.register(r'', views.DarwinCoreObjectViewSet)
 urlpatterns = [
         path('', include(router.urls)),
 ]
-import debug_toolbar
-urlpatterns = [ path('__debug__/', include(debug_toolbar.urls)), ] + urlpatterns
