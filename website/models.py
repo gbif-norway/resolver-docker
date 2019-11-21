@@ -3,6 +3,5 @@ from django.contrib.postgres.fields import JSONField
 import uuid
 
 class DarwinCoreObject(models.Model):
-    uuid = models.UUIDField(primary_key=True)
+    id = models.CharField(primary_key=True, max_length=200)
     data = JSONField()
-
