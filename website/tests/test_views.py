@@ -26,6 +26,22 @@ class ResolverViewTests(APITestCase):
         self.assertEqual(len(results['results']), 1)
         self.assertEqual(results['results'][0]['dwc:scientificname'], 'galium odoratum')
 
+    def test_filters_on_multiple(self):
+        id = 'urn:uuid:5c0884ce-608c-4716-ba0e-cb389dca5580'
+        DarwinCoreObject.objects.create(id=id, data={'id': id, 'basisOfRecord': 'preservedspecimen', 'scientificname': 'Galium odoratum'})
+        id = 'urn:uuid:6c0884ce-608c-4716-ba0e-cb389dca5581'
+        DarwinCoreObject.objects.create(id=id, data={'id': id, 'basisOfRecord': 'preservedspecimen', 'scientificname': 'Eudyptes moseleyi'})
+        id = 'urn:uuid:7c0884ce-608c-4716-ba0e-cb389dca5582'
+        DarwinCoreObject.objects.create(id=id, data={'id': id, 'basisOfRecord': 'preservedspecimen', 'scientificname': 'Eudyptes moseleyi'})
+
+        url = reverse('darwincoreobject-list')
+        response = self.client.get(url + '?data__scientificname=Eudyptes%20moseleyi', HTTP_ACCEPT='application/ld+json')
+        response_string = response.content.decode('utf-8').lower()
+        results = json.loads(response_string)
+        self.assertEqual(len(results['results']), 2)
+        self.assertEqual(results['results'][0]['dwc:scientificname'], 'eudyptes moseleyi')
+        self.assertEqual(results['results'][1]['dwc:scientificname'], 'eudyptes moseleyi')
+
     def test_renders_occurrence_json_ld(self):
         response_string = self._simple_request_occurrence('application/ld+json')
         expected_response = {'owl:sameas': 'urn:uuid:5c0884ce-608c-4716-ba0e-cb389dca5580', '@id': 'http://purl.org/gbifnorway/id/urn:uuid:5c0884ce-608c-4716-ba0e-cb389dca5580', 'dwc:basisofrecord': 'preservedspecimen', '@context': {'dc': 'http://purl.org/dc/elements/1.1/', 'dwc': 'http://rs.tdwg.org/dwc/terms/', 'owl': 'https://www.w3.org/tr/owl-ref/'}}

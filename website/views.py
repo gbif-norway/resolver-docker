@@ -3,6 +3,7 @@ from rest_framework import viewsets, renderers
 from .serializers import DarwinCoreObjectSerializer
 from .renderers import RDFRenderer, JSONLDRenderer
 from .paginators import CustomPagination
+from django.db.models import Q
 
 
 class DarwinCoreObjectViewSet(viewsets.ReadOnlyModelViewSet):
@@ -15,9 +16,8 @@ class DarwinCoreObjectViewSet(viewsets.ReadOnlyModelViewSet):
     pagination_class = CustomPagination
 
     def get_queryset(self):
-        sci_name = self.request.query_params.get('data__scientificname')
-        if sci_name:
-            return self.queryset.filter(data__scientificname=sci_name)
-        else:
-            return self.queryset
+        q_objects = Q()
+        for field_name, search_term in self.request.query_params.items():
+            q_objects &= Q(**{field_name:search_term})
+        return DarwinCoreObject.objects.filter(q_objects)
 
