@@ -13,6 +13,10 @@ class ResolverViewTests(APITestCase):
         response = self.client.get(reverse('darwincoreobject-detail', ['00000000-0000-0000-0000-000000000000']))
         self.assertTrue(response.status_code == 404)
 
+    def test_filters_do_not_break_with_paginator(self):
+        url = reverse('darwincoreobject-list')
+        response = self.client.get(url + '?offset=10&limit=20', HTTP_ACCEPT='application/ld+json')
+
     def test_filters_on_scientific_name(self):
         id = 'urn:uuid:5c0884ce-608c-4716-ba0e-cb389dca5580'
         DarwinCoreObject.objects.create(id=id, data={'id': id, 'basisOfRecord': 'preservedspecimen', 'scientificname': 'Galium odoratum'})
