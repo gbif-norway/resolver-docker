@@ -22,7 +22,7 @@ class CustomPagination(LimitOffsetPagination):
         self.offset = self.get_offset(request)
 
         if 'search' in request.GET:
-            count = 0
+            count = self.count
         else:
             with connection.cursor() as cursor:
                 cursor.execute("SELECT reltuples FROM pg_class WHERE relname = 'website_darwincoreobject'")
