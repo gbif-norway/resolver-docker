@@ -1,8 +1,6 @@
-from rest_framework.pagination import PageNumberPagination, CursorPagination, LimitOffsetPagination
-from django.core.paginator import Paginator
-from django.utils.functional import cached_property
+from rest_framework.pagination import LimitOffsetPagination
 from django.db import connection
-from rest_framework.response import Response
+
 
 class CustomPagination(LimitOffsetPagination):
     def get_count(self, queryset):
