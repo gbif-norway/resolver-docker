@@ -1,5 +1,5 @@
 from .models import DarwinCoreObject
-from rest_framework import viewsets, renderers, pagination
+from rest_framework import viewsets, renderers
 from .serializers import DarwinCoreObjectSerializer
 from .renderers import RDFRenderer, JSONLDRenderer
 from .paginators import CustomPagination
