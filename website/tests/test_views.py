@@ -1,4 +1,4 @@
-from website.models import DarwinCoreObject
+from website.models import DarwinCoreObject, Statistic
 import json
 from rest_framework.test import APITestCase
 from rest_framework.reverse import reverse
@@ -6,6 +6,7 @@ from rest_framework.reverse import reverse
 
 class ResolverViewTests(APITestCase):
     def test_displays_index(self):
+        Statistic.objects.set_total_count(0)
         response = self.client.get('/')
         self.assertEqual(response.status_code, 200)
 
@@ -14,8 +15,44 @@ class ResolverViewTests(APITestCase):
         self.assertTrue(response.status_code == 404)
 
     def test_filters_do_not_break_with_paginator(self):
+        Statistic.objects.set_total_count(0)
+        response = self.client.get(reverse('darwincoreobject-list') + '?offset=10&limit=20', HTTP_ACCEPT='application/ld+json')
+        self.assertEqual(response.status_code, 200)
+
+    def test_displays_all_results(self):
+        for item in 'abcde':
+            DarwinCoreObject.objects.create(id=item, data={'test': item})
+        Statistic.objects.set_total_count(5) # Total count has to be manually pre-set when database is populated to return results here, too slow to calculate on the fly
+        response = self.client.get(reverse('darwincoreobject-list') + '?limit=10', HTTP_ACCEPT='application/ld+json')
+        results = json.loads(response.content.decode('utf-8').lower())
+        self.assertEqual(len(results['results']), 5)
+
+    def test_pagination(self):
         url = reverse('darwincoreobject-list')
-        response = self.client.get(url + '?offset=10&limit=20', HTTP_ACCEPT='application/ld+json')
+        for item in 'abcde':
+            DarwinCoreObject.objects.create(id=item, data={'test': item})
+        Statistic.objects.create(name='total_count', value=5)
+        response = self.client.get(url + '?offset=3&limit=2', HTTP_ACCEPT='application/ld+json')
+        results = json.loads(response.content.decode('utf-8').lower())
+        self.assertEqual(len(results['results']), 2)
+        self.assertEqual(results['results'][0]['dwc:test'], 'd')
+        self.assertEqual(results['results'][1]['dwc:test'], 'e')
+
+    def test_filters_with_pagination(self):
+        for item in [('a', 'Galium',), ('b', 'Eudyptes'), ('c', 'Eudyptes'), ('d', 'Galium'), ('e', 'Eudyptes')]:
+            DarwinCoreObject.objects.create(id=item[0], data={'id': item[0], 'scientificname': item[1]})
+        response = self.client.get(reverse('darwincoreobject-list') + '?offset=1&limit=1&scientificname=Eudyptes', HTTP_ACCEPT='application/ld+json')
+        results = json.loads(response.content.decode('utf-8').lower())
+        self.assertEqual(len(results['results']), 1)
+        self.assertEqual(results['results'][0]['dwc:scientificname'], 'eudyptes')
+        self.assertEqual(results['results'][0]['owl:sameas'], 'c')
+
+    def test_correct_count_with_filtering_and_pagination(self):
+        for item in [('a', 'Galium',), ('b', 'Eudyptes'), ('c', 'Eudyptes'), ('d', 'Galium'), ('e', 'Eudyptes')]:
+            DarwinCoreObject.objects.create(id=item[0], data={'id': item[0], 'scientificname': item[1]})
+        response = self.client.get(reverse('darwincoreobject-list') + '?offset=1&limit=1&scientificname=Eudyptes', HTTP_ACCEPT='application/ld+json')
+        results = json.loads(response.content.decode('utf-8').lower())
+        self.assertEqual(results['count'], 3)
 
     def test_filters_on_scientific_name(self):
         id = 'urn:uuid:5c0884ce-608c-4716-ba0e-cb389dca5580'
@@ -25,8 +62,7 @@ class ResolverViewTests(APITestCase):
 
         url = reverse('darwincoreobject-list')
         response = self.client.get(url + '?scientificname=Galium%20odoratum', HTTP_ACCEPT='application/ld+json')
-        response_string = response.content.decode('utf-8').lower()
-        results = json.loads(response_string)
+        results = json.loads(response.content.decode('utf-8').lower())
         self.assertEqual(len(results['results']), 1)
         self.assertEqual(results['results'][0]['dwc:scientificname'], 'galium odoratum')
 
@@ -40,8 +76,7 @@ class ResolverViewTests(APITestCase):
 
         url = reverse('darwincoreobject-list')
         response = self.client.get(url + '?scientificname=Eudyptes%20moseleyi', HTTP_ACCEPT='application/ld+json')
-        response_string = response.content.decode('utf-8').lower()
-        results = json.loads(response_string)
+        results = json.loads(response.content.decode('utf-8').lower())
         self.assertEqual(results['results'][0]['dwc:scientificname'], 'eudyptes moseleyi')
         self.assertEqual(results['results'][1]['dwc:scientificname'], 'eudyptes moseleyi')
 
@@ -55,8 +90,7 @@ class ResolverViewTests(APITestCase):
 
         url = reverse('darwincoreobject-list')
         response = self.client.get(url + '?scientificname=Eudyptes%20moseleyi', HTTP_ACCEPT='application/ld+json')
-        response_string = response.content.decode('utf-8').lower()
-        results = json.loads(response_string)
+        results = json.loads(response.content.decode('utf-8').lower())
         self.assertEqual(len(results['results']), 2)
         self.assertEqual(results['count'], 2)
 
@@ -70,8 +104,7 @@ class ResolverViewTests(APITestCase):
 
         url = reverse('darwincoreobject-list')
         response = self.client.get('/', HTTP_ACCEPT='application/ld+json')
-        response_string = response.content.decode('utf-8').lower()
-        results = json.loads(response_string)
+        results = json.loads(response.content.decode('utf-8').lower())
         self.assertEqual(len(results['results']), 3)
         self.assertEqual(results['count'], 3) # Note: this fails at the moment until I can figure out a better way to count
 
