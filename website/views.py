@@ -3,6 +3,7 @@ from rest_framework import viewsets, renderers
 from .serializers import DarwinCoreObjectSerializer
 from .renderers import RDFRenderer, JSONLDRenderer
 from .paginators import CustomPagination
+from rest_framework.pagination import LimitOffsetPagination
 
 
 class DarwinCoreObjectViewSet(viewsets.ReadOnlyModelViewSet):
@@ -15,5 +16,6 @@ class DarwinCoreObjectViewSet(viewsets.ReadOnlyModelViewSet):
     pagination_class = CustomPagination
 
     def get_queryset(self):
-        return DarwinCoreObject.objects.filter(data__contains=self.request.query_params)
+        query_params = {key: item for key, item in self.request.query_params.items() if key not in ['offset', 'limit']}
+        return DarwinCoreObject.objects.filter(data__contains=query_params)
 
