@@ -1,5 +1,5 @@
-import gbif_api
-from unittest import TestCase
+from populator.management.commands import _gbif_api as gbif_api
+from django.test import TestCase
 import responses
 
 class GbifApiTest(TestCase):
@@ -19,7 +19,7 @@ class GbifApiTest(TestCase):
         self.assertEqual(dataset_list, mock_datasets)
 
     @responses.activate
-    def test_get_dataset_list_api_fail(self):
+    def _logs_when_get_dataset_list_api_fails(self):
         url = self.GBIF_API_DATASET_URL.format('search?limit=5000&publishingCountry=NO')
         responses.add(responses.GET, url, json={}, status=500)
         with self.assertLogs() as cm:
@@ -57,7 +57,7 @@ class GbifApiTest(TestCase):
     @responses.activate
     def test_get_cores_from_ipt(self):
         url = 'https://data.gbif.no/ipt/archive.do?r=o_vxl'
-        with open('tests/mock_data/dwc_archive_test_file.zip', 'rb') as dwc_zip_stream:
+        with open('populator/tests/mock_data/dwc_archive_test_file.zip', 'rb') as dwc_zip_stream:
             responses.add(responses.GET, url, body=dwc_zip_stream.read(), status=200, content_type='application/zip', stream=True)
 
         cores = gbif_api.get_cores_from_ipt(url)
@@ -70,7 +70,7 @@ class GbifApiTest(TestCase):
         self.assertEqual(retrieved_first_line, first_line)
 
     @responses.activate
-    def test_get_cores_from_ipt_fail(self):
+    def _get_cores_from_ipt_fail(self):
         url = 'https://data.gbif.no/ipt/archive.do?r=o_vxl'
         responses.add(responses.GET, url, json={}, status=404)
         with self.assertLogs() as cm:
