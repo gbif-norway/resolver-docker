@@ -16,10 +16,12 @@ Including another URLconf
 from django.urls import include, path
 from website import views
 from rest_framework import routers
+import debug_toolbar
 
 router = routers.SimpleRouter()
 router.register(r'', views.DarwinCoreObjectViewSet)
 
 urlpatterns = [
         path('', include(router.urls)),
+        path('__debug__/', include(debug_toolbar.urls)),
 ]

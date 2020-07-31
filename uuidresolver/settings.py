@@ -25,7 +25,8 @@ SECRET_KEY = '_fwo$(&guk5^9+wk+scd*b&3nxe=fw=c9u1eci9v9fq17xgfu#'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = [os.environ.get('VIRTUAL_HOST', 'resolver.local')]
+#ALLOWED_HOSTS = [os.environ.get('VIRTUAL_HOST', 'resolver.local')]
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -35,16 +36,20 @@ INSTALLED_APPS = [
     'django.contrib.auth',
     'website.apps.WebsiteConfig',
     'django.contrib.staticfiles',
+    'debug_toolbar',
     'rest_framework',
     'django_filters',
+    'corsheaders'
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
 ]
 
 ROOT_URLCONF = 'uuidresolver.urls'
@@ -138,3 +143,10 @@ REST_FRAMEWORK = {
     'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
     'PAGE_SIZE': 10
 }
+
+INTERNAL_IPS = ['127.0.0.1',]
+DEBUG_TOOLBAR_CONFIG = { "SHOW_TOOLBAR_CALLBACK" : True, }
+STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+
+CORS_ORIGIN_ALLOW_ALL = True
+CORS_ORIGIN_WHITELIST = ('http://localhost:3000',)
