@@ -1,30 +1,6 @@
 from django.db import connection
 
-def _create_jsonb_diff_function_in_postgres():
-    with connection.cursor() as cursor:
-        sql = ("CREATE OR REPLACE FUNCTION jsonb_diff_val(val1 JSONB,val2 JSONB)"
-                " RETURNS JSONB AS $$"
-                " DECLARE"
-                "   result JSONB;"
-                "   v RECORD;"
-                " BEGIN"
-                "    result = val1;"
-                "    FOR v IN SELECT * FROM jsonb_each(val2) LOOP"
-                "      IF result @> jsonb_build_object(v.key,v.value)"
-                "         THEN result = result - v.key;"
-                "      ELSIF result ? v.key THEN CONTINUE;"
-                "      ELSE"
-                "         result = result || jsonb_build_object(v.key, NULL);"
-                "      END IF;"
-                "    END LOOP;"
-                "    RETURN result;"
-                " END;"
-                " $$ LANGUAGE plpgsql;")
-        cursor.execute(sql)
-
 def merge_in_new_data():
-    _create_jsonb_diff_function_in_postgres()
-
     with connection.cursor() as cursor:
         # Insert data changes into history table and update data in main table
         sql = """
