@@ -57,7 +57,7 @@ class GbifApiTest(TestCase):
     @responses.activate
     def test_get_cores_from_ipt(self):
         url = 'https://data.gbif.no/ipt/archive.do?r=o_vxl'
-        with open('populator/tests/mock_data/dwc_archive_test_file.zip', 'rb') as dwc_zip_stream:
+        with open('/code/populator/tests/mock_data/dwc_archive_test_file.zip', 'rb') as dwc_zip_stream:
             responses.add(responses.GET, url, body=dwc_zip_stream.read(), status=200, content_type='application/zip', stream=True)
 
         cores = gbif_api.get_cores_from_ipt(url)

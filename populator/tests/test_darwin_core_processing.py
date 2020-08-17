@@ -8,7 +8,7 @@ from datetime import date
 
 
 class DarwinCoreProcessingTest(TestCase):
-    SMALL_TEST_FILE = 'populator/tests/mock_data/occurrence_test_file_small.txt.zip'
+    SMALL_TEST_FILE = '/code/populator/tests/mock_data/occurrence_test_file_small.txt.zip'
 
     def setUp(self):
         with connection.cursor() as cursor:
@@ -33,7 +33,7 @@ class DarwinCoreProcessingTest(TestCase):
 
     def test_copy_csv_to_replacement_table_large(self):
         return # Timeconsuming so it is only run periodically
-        with gzip.open('populator/tests/mock_data/occurrence_test_file_large.txt.gz', 'rt') as file_obj:
+        with gzip.open('/code/populator/tests/mock_data/occurrence_test_file_large.txt.gz', 'rt') as file_obj:
             count = darwin_core_processing.copy_csv_to_replacement_table(file_obj, 'occurrenceid', 'my_dataset_id')
         self.assertEqual(count, 1700000)
 

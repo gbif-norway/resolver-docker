@@ -1,5 +1,5 @@
 from django.db import models
-from django.contrib.postgres.fields import JSONField
+from django.db.models import JSONField
 from django.contrib.postgres.indexes import GinIndex
 import uuid
 
@@ -12,7 +12,6 @@ class DarwinCoreObject(models.Model):
     class Meta:
         indexes = [GinIndex(fields=['data'])]
         # CREATE INDEX idxginscientificname ON website_darwincoreobject USING GIN ((data -> 'scientificname'));
-
 
 class History(models.Model):
     darwin_core_object = models.ForeignKey(DarwinCoreObject, on_delete=models.DO_NOTHING)
