@@ -1,4 +1,0 @@
-populator/tests/mock_data/occurrence_test_file_large.txt.gz filter=lfs diff=lfs merge=lfs -text
-populator/tests/mock_data/occurrence_test_file_small.txt.zip filter=lfs diff=lfs merge=lfs -text
-populator/tests/mock_data/dwc_archive_test_file.zip filter=lfs diff=lfs merge=lfs -text
-populator/tests/mock_data/occurrence.txt filter=lfs diff=lfs merge=lfs -text
