@@ -19,7 +19,7 @@ from rest_framework import routers
 import debug_toolbar
 
 router = routers.SimpleRouter()
-router.register(r'', views.DarwinCoreObjectViewSet)
+router.register(r'', views.ResolvableObjectViewSet)
 
 urlpatterns = [
         path('', include(router.urls)),
