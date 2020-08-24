@@ -3,6 +3,7 @@ version: '3'
 services:
   db:
     image: postgres
+    shm_size: 5g
     environment:
         - POSTGRES_HOST_AUTH_METHOD=trust
   web:

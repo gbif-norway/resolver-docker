@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <dl>
-{% for key, value in darwin_core_object.data.items %}
+{% for key, value in resolvable_object.data.items %}
   <dt>{{ key }}</dt>
   <dd>{{ value }}</dd>
 {% endfor %}

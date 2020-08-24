@@ -1,9 +1,9 @@
 from rest_framework import serializers
-from .models import DarwinCoreObject
+from .models import ResolvableObject
 
-class DarwinCoreObjectSerializer(serializers.HyperlinkedModelSerializer):
+class ResolvableObjectSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
-        model = DarwinCoreObject
+        model = ResolvableObject
         fields = ('data',)
 
     def to_representation(self, instance):

@@ -1,109 +1,88 @@
-from io import StringIO
-import responses
-from unittest import mock
-from populator.management.commands import _gbif_api as gbif_api
 from populator.management.commands import _cache_data as cache_data
-from website.models import History, DarwinCoreObject
-from django.db import connection
-from django.test import TestCase
-from zipfile import ZipFile
+from populator.models import History, ResolvableObjectMigration
+from django.test import TestCase, TransactionTestCase
 from datetime import date, timedelta
-import json
+from website.models import ResolvableObject, Dataset
+from django.forms.models import model_to_dict
 
 
-class CacheDataTest(TestCase):
-    test_data = {'scientific_name': 'Draba verna', 'plant_parts': 'leaves', 'use': 'veterinary'}
-    old_table = 'website_darwincoreobject'
-    new_table = 'replacement_table'
-    uuid_a = 'f2f84497-b3bf-493a-bba9-7c68e6def80b'
-    uuid_b = 'g2f84497-b3bf-493a-bba9-7c68e6def80c'
+class CacheDataTest(TransactionTestCase):
+    reset_sequences = True
 
     def setUp(self):
-        with connection.cursor() as cursor:
-            cursor.execute('DROP TABLE IF EXISTS replacement_table')
-            cursor.execute('CREATE TABLE replacement_table (LIKE website_darwincoreobject INCLUDING ALL)')
+        self.dataset = Dataset.objects.create(id='dataset_id', data={'title': 'My dataset'})
 
-    def tearDown(self):
-        with connection.cursor() as cursor:
-             cursor.execute('DROP TABLE IF EXISTS replacement_table')
+    def create_ro(self, data={}):
+        ResolvableObject.objects.create(id='a', type='occurrence', dataset=self.dataset, data=data)
 
-    def _insert_data(self, table, uuid, data, date=date.today()):
-        with connection.cursor() as cursor:
-            cursor.execute("INSERT INTO {}(id, data, created_date) VALUES ('{}', '{}', '{}')".format(table, uuid, json.dumps(data), date))
+    def create_ro_migration(self, data={}, id='a'):
+        ResolvableObjectMigration.objects.create(id=id, type='occurrence', dataset_id=self.dataset.id, data=data)
 
-    def test_adds_changes_in_history_table(self):
-        self._insert_data(self.old_table, self.uuid_a, {'no_change': 'same', 'updated': 'old original', 'deleted': 'old deleted'})
-        self._insert_data(self.new_table, self.uuid_a, {'no_change': 'same', 'updated': 'new updated', 'created': 'new created'})
+    def assert_equal(self, iterable1, iterable2):  # Necessary as assertEqual does not compare json fields
+        self.assertEqual([model_to_dict(x) for x in iterable1], [model_to_dict(x) for x in iterable2])
+
+    def test_records_old_version_of_modified_data_items_in_history_table(self):
+        self.create_ro({'scientificname': 'same', 'location': 'old original'})
+        self.create_ro_migration({'scientificname': 'same', 'location': 'new updated'})
         cache_data.merge_in_new_data()
-        expected = History(id=1, darwin_core_object_id=self.uuid_a, changed_data={'updated': 'old original', 'deleted': 'old deleted', 'created': None}, changed_date=date.today())
-        self.assertEqual(list(History.objects.all()), [expected])
+        expected = History(id=1, resolvable_object_id='a', changed_data={'location': 'old original'}, changed_date=date.today())
+        self.assert_equal(History.objects.all(), [expected])
+
+    def test_records_copy_of_deleted_data_items_in_history_table(self):
+        self.create_ro({'scientificname': 'same', 'incorrect_data': 'to be deleted'})
+        self.create_ro_migration({'scientificname': 'same'})
+        cache_data.merge_in_new_data()
+        expected = History(id=1, resolvable_object_id='a', changed_data={'incorrect_data': 'to be deleted'}, changed_date=date.today())
+        self.assert_equal(History.objects.all(), [expected])
+
+    def test_adds_none_for_new_created_data_items_history_table(self):
+        self.create_ro({'scientificname': 'same'})
+        self.create_ro_migration({'scientificname': 'same', 'location': 'new created'})
+        cache_data.merge_in_new_data()
+        expected = History(id=1, resolvable_object_id='a', changed_data={'location': None}, changed_date=date.today())
+        self.assert_equal(History.objects.all(), [expected])
 
     def test_does_not_add_to_history_table_if_no_changes(self):
-        self._insert_data(self.old_table, self.uuid_a, {'no_change': 'should not be included in history'})
-        self._insert_data(self.new_table, self.uuid_a, {'no_change': 'should not be included in history'})
+        self.create_ro({'no_change': 'should not be included in history'})
+        self.create_ro_migration({'no_change': 'should not be included in history'})
         cache_data.merge_in_new_data()
         self.assertEqual(list(History.objects.all()), [])
 
-    def test_new_dwc_entry_does_not_add_to_history_table(self):
-        self._insert_data(self.new_table, self.uuid_a, {'new_record_added_to_dataset': 'should not be included in history'})
+    def test_new_entry_does_not_add_to_history_table(self):
+        self.create_ro_migration({'new_record_added_to_dataset': 'should not be included in history'})
         cache_data.merge_in_new_data()
         self.assertEqual(list(History.objects.all()), [])
 
-    def test_creates_updated_changes_in_darwin_core_object_table(self):
-        past_date = date.today() - timedelta(days=5)
-        self._insert_data(self.old_table, self.uuid_a, {'no_change': 'same', 'updated': 'old original', 'deleted': 'old deleted'}, past_date )
-        self._insert_data(self.new_table, self.uuid_a, {'no_change': 'same', 'updated': 'new updated', 'created': 'new created'}, date.today())
+    def test_updates_changes_from_gbif_in_resolvableobject_table(self):
+        self.create_ro({'no_change': 'same', 'updated': 'old original', 'deleted': 'old deleted'})
+        self.create_ro_migration({'no_change': 'same', 'updated': 'new updated', 'created': 'new created'})
         cache_data.merge_in_new_data()
-        expected = DarwinCoreObject(id=self.uuid_a, data={'no_change': 'same', 'updated': 'new updated', 'created': 'new created'}, created_date=past_date)
-        self.assertEqual(list(DarwinCoreObject.objects.all()), [expected])
+        expected = {'no_change': 'same', 'updated': 'new updated', 'created': 'new created'}
+        self.assertEqual(ResolvableObject.objects.all()[0].data, expected)
 
-    def test_creates_single_record_in_darwin_core_object_table(self):
-        self._insert_data(self.new_table, self.uuid_a, {'no_change': 'same', 'updated': 'new updated', 'created': 'new created'}, date.today())
+    def test_creates_new_single_record_in_resolvableobject_table(self):
+        self.create_ro_migration({'new_record': 'new'})
         cache_data.merge_in_new_data()
-        expected = DarwinCoreObject(id=self.uuid_a, data={'no_change': 'same', 'updated': 'new updated', 'created': 'new created'}, created_date=date.today())
-        self.assertEqual(list(DarwinCoreObject.objects.all()), [expected])
+        self.assert_equal(ResolvableObject.objects.all(), [ResolvableObject(id='a', type='occurrence', data={'new_record': 'new'}, dataset=self.dataset)])
 
-    def test_creates_multiple_records_in_darwin_core_object_table(self):
-        self._insert_data(self.new_table, self.uuid_a, {'no_change': 'same'}, date.today())
-        self._insert_data(self.new_table, self.uuid_b, {'no_change': 'same'}, date.today())
+    def test_creates_new_multiple_records_in_resolvable_object_table(self):
+        self.create_ro_migration({'new_record': 'new'})
+        self.create_ro_migration({'new_record': 'new'}, 'b')
         cache_data.merge_in_new_data()
-        expected = [DarwinCoreObject(id=self.uuid_a, data={'no_change': 'same'}, created_date=date.today()),
-                    DarwinCoreObject(id=self.uuid_b, data={'no_change': 'same'}, created_date=date.today())]
-        self.assertEqual(list(DarwinCoreObject.objects.all()), expected)
+        expected = [
+            ResolvableObject(id='a', data={'new_record': 'new'}, type='occurrence', dataset=self.dataset),
+            ResolvableObject(id='b', data={'new_record': 'new'}, type='occurrence', dataset=self.dataset),
+        ]
+        self.assert_equal(ResolvableObject.objects.all(), expected)
 
-    def test_adds_deleted_datestamp_for_removed_records_in_darwin_core_object_table(self):
-        past_date = date.today() - timedelta(days=5)
-        self._insert_data(self.old_table, self.uuid_a, {'no_change': 'same'}, past_date)
+    def test_adds_deleted_datestamp_for_removed_records_in_resolvable_object_table(self):
+        self.create_ro({'no_change': 'same'})
         cache_data.merge_in_new_data()
-        expected = DarwinCoreObject(id=self.uuid_a, data={'no_change': 'same'}, deleted_date=date.today(), created_date=past_date)
-        self.assertEqual(list(DarwinCoreObject.objects.all()), [expected])
+        expected = ResolvableObject(id='a', data={'no_change': 'same'}, deleted_date=date.today(), type='occurrence', dataset=self.dataset)
+        self.assert_equal(ResolvableObject.objects.all(), [expected])
 
-    def test_does_not_ovewrite_preexisting_deleted_datestamps(self):
+    def test_does_not_overwrite_preexisting_deleted_datestamps(self):
         past_date_d = date.today() - timedelta(days=4)
-        DarwinCoreObject.objects.create(id='1', data={'none': 'none'}, created_date=date.today() - timedelta(days=5), deleted_date=past_date_d)
+        ResolvableObject.objects.create(id='1', data={'none': 'none'}, deleted_date=past_date_d, dataset=self.dataset, type='occurrence')
         cache_data.merge_in_new_data()
-        self.assertEqual(DarwinCoreObject.objects.first().deleted_date, past_date_d)
-
-    def test_reset_refreshes_gbif_data(self):
-        self._insert_data(self.new_table, self.uuid_b, {'new_data': 'refreshed from gbif'}, date.today())
-        self._insert_data(self.old_table, self.uuid_a, {'old_data': 'now deleted on gbif'}, date.today() - timedelta(days=4))
-        cache_data.reset()
-        expected = DarwinCoreObject(id=self.uuid_b, data={'new_data': 'refreshed from gbif'}, created_date=date.today())
-        self.assertEqual(list(DarwinCoreObject.objects.all()), [expected])
-
-    def test_makes_no_change_to_created_date_for_data_that_remains_the_same(self):
-        self._insert_data(self.new_table, self.uuid_a, {'no_change': 'none'}, date.today())
-        self._insert_data(self.old_table, self.uuid_a, {'no_change': 'none'}, date.today() - timedelta(days=1))
-        cache_data.merge_in_new_data()
-        expected = DarwinCoreObject(id=self.uuid_a, data={'no_change': 'none'}, created_date=date.today() - timedelta(days=1))
-        self.assertEqual(list(DarwinCoreObject.objects.all()), [expected])
-
-    def test_reset_does_not_store_history(self):
-        self._insert_data(self.new_table, self.uuid_b, {'new_data': 'refreshed from gbif'}, date.today())
-        self._insert_data(self.old_table, self.uuid_a, {'old_data': 'now deleted on gbif'}, date.today() - timedelta(days=4))
-        cache_data.reset()
-        self.assertEqual(list(History.objects.all()), [])
-
-
-if __name__ == '__main__':
-    unittest.main()
+        self.assertEqual(ResolvableObject.objects.first().deleted_date, past_date_d)
