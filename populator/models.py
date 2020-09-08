@@ -22,7 +22,7 @@ class StatisticsManager(models.Manager):
         return self.get(name='total_count').value
 
     def set_total_count(self, value):
-        self.create(name='total_count', value=value)
+        self.update_or_create(name='total_count', value=value)
 
 
 class Statistic(models.Model):
