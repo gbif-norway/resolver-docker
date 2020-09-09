@@ -3,20 +3,21 @@ from zipfile import ZipFile, BadZipFile
 from datetime import datetime
 import psycopg2 as p
 import re
-
+import logging
 
 
 def import_dwca(dataset_id, zip_file_location='/tmp/tmp.zip'):
+    logger = logging.getLogger(__name__)
     supported_cores = ['occurrence.txt', 'event.txt', 'taxon.txt']
     count = 0
     try:
         with ZipFile(zip_file_location) as zf:  #
-            print(zf.namelist())
+            logger.info(zf.namelist())
             for file_name in [file_name for file_name in zf.namelist() if file_name in supported_cores]:
                 with zf.open(file_name) as f:
-                    print('about to import ' + file_name)
+                    logger.info('about to import ' + file_name)
                     now = datetime.now()
-                    print(now)
+                    logger.info(now)
                     create_temp_table(get_columns(f.readline()))
                     try:
                         import_file(f)
@@ -24,15 +25,15 @@ def import_dwca(dataset_id, zip_file_location='/tmp/tmp.zip'):
                         continue
                     except p.errors.BadCopyFileFormat as e:
                         continue
-                    print('fin')
-                    print(datetime.now() - now)
+                    logger.info('fin')
+                    logger.info(datetime.now() - now)
 
                     core_type = re.sub('\.txt$', '', file_name)
                     if not sync_id_column(get_core_id(core_type)):
                         return 0
                     get_duplicates(dataset_id, core_type)
                     count += insert_json_into_migration_table(dataset_id, core_type)
-                    print('inserted {}'.format(count))
+                    logger.info('inserted {}'.format(count))
     except BadZipFile:
         return 0
 
