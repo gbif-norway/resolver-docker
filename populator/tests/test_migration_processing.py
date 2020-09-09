@@ -8,7 +8,6 @@ import os
 
 
 class MigrationProcessingTest(TestCase):
-
     def _get_temp_count(self):
         with connection.cursor() as cursor:
             cursor.execute("SELECT COUNT(*) FROM temp")
@@ -21,15 +20,6 @@ class MigrationProcessingTest(TestCase):
     def test_import_dwca_skips_bad_rows(self):
         migration_processing.import_dwca('my_dataset_id', '/code/populator/tests/mock_data/dwc_archive_bad_rows.zip')
         self.assertEqual(ResolvableObjectMigration.objects.count(), 11)
-
-    def test_insert_lots(self):
-        for file_name in os.listdir('/code/populator/tests/mock_data/bulk/'):
-            exclude = ['.DS_Store', ]
-            only = ['dwca-nhm-plant-uses-v1.4.zip', 'dwca-o_vascular-v1.1236.zip', 'dwca-benthic_invertebrates_biogeographical_mapping_ntnu_university_museum-v1.407.zip']
-            #only = ['dwca-benthic_invertebrates_biogeographical_mapping_ntnu_university_museum-v1.407.zip']
-            if file_name in only and file_name not in exclude:
-                migration_processing.import_dwca('my_dataset_id', '/code/populator/tests/mock_data/bulk/' + file_name)
-        self.assertEqual(ResolvableObjectMigration.objects.count(), 868160)
 
     def test_get_core_id(self):
         self.assertEqual('measurementid', migration_processing.get_core_id('measurementorfact'))
