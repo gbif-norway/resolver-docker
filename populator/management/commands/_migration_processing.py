@@ -22,8 +22,12 @@ def import_dwca(dataset_id, zip_file_location='/tmp/tmp.zip'):
                     try:
                         import_file(f)
                     except p.errors.CharacterNotInRepertoire as e:
+                        logger.error(e)
+                        logger.error('file_name')
                         continue
                     except p.errors.BadCopyFileFormat as e:
+                        logger.error(e)
+                        logger.error('file_name')
                         continue
                     logger.info('fin')
                     logger.info(datetime.now() - now)
