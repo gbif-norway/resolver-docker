@@ -1,18 +1,25 @@
 from populator.management.commands import _migration_processing as migration_processing
 from populator.management.commands.populate_resolver import create_duplicates_file
 from populator.models import ResolvableObjectMigration
-import gzip
-from io import StringIO
-from django.db import connection
-from django.test import TestCase
-from zipfile import ZipFile
+from django.db import connection, transaction
+from django.test import TestCase, TransactionTestCase
 from django.forms.models import model_to_dict
 import os
-from datetime import date
 
 
 class MigrationProcessingTest(TestCase):
-    SMALL_TEST_FILE = '/code/populator/tests/mock_data/occurrence_test_file_small.txt.zip'
+    def _get_temp_count(self):
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT COUNT(*) FROM temp")
+            return cursor.fetchone()[0]
+
+    def test_import_dwca_imports_rows(self):
+        migration_processing.import_dwca('my_dataset_id', '/code/populator/tests/mock_data/dwca-seabird_estimates-v1.0.zip')
+        self.assertEqual(ResolvableObjectMigration.objects.count(), 20191)
+
+    def test_import_dwca_skips_bad_rows(self):
+        migration_processing.import_dwca('my_dataset_id', '/code/populator/tests/mock_data/dwc_archive_bad_rows.zip')
+        self.assertEqual(ResolvableObjectMigration.objects.count(), 11)
 
     def test_get_core_id(self):
         self.assertEqual('measurementid', migration_processing.get_core_id('measurementorfact'))
@@ -20,27 +27,6 @@ class MigrationProcessingTest(TestCase):
 
     def test_get_core_id_fail(self):
         self.assertEqual(False, migration_processing.get_core_id('measurement'))
-
-    def test_copy_csv_to_migration_table_small(self):
-        with ZipFile(self.SMALL_TEST_FILE, 'r') as file_obj:
-            count = migration_processing.copy_csv_to_migration_table(file_obj.open('occurrence.txt'), 'occurrence', 'my_dataset_id')
-        self.assertEqual(count, 5000)
-
-    def test_copy_csv_to_migration_table_large(self):
-        return # Timeconsuming so it is only run periodically
-        with gzip.open('/code/populator/tests/mock_data/occurrence_test_file_large.txt.gz', 'rt') as file_obj:
-            count = migration_processing.copy_csv_to_migration_table(file_obj, 'occurrence', 'my_dataset_id')
-        self.assertEqual(count, 1700000)
-
-    def test_copy_csv_to_migration_table_with_invalid_core_adds_no_records(self):
-        with ZipFile(self.SMALL_TEST_FILE, 'r') as file_obj:
-            count = migration_processing.copy_csv_to_migration_table(file_obj.open('occurrence.txt'), 'event', 'my_dataset_id')
-        self.assertEqual(count, 0)
-
-    def test_copy_csv_to_migration_table_with_unsupported_core_adds_no_records(self):
-        with ZipFile(self.SMALL_TEST_FILE, 'r') as file_obj:
-            count = migration_processing.copy_csv_to_migration_table(file_obj.open('occurrence.txt'), 'new_weird_core', 'my_dataset_id')
-        self.assertEqual(count, 0)
 
     def test_get_columns(self):
         heading_string = b'HEADING1,\tHeading,heading\theading3\theading4\t'
@@ -51,7 +37,7 @@ class MigrationProcessingTest(TestCase):
         headings = ['heading1', 'heading2', 'order', 'heading4']
         with connection.cursor() as cursor:
             migration_processing.create_temp_table(headings)
-            temp = cursor.execute('SELECT * FROM temp')
+            cursor.execute('SELECT * FROM temp')
             results = cursor.fetchall()
             self.assertEqual(len(results), 0)
             self.assertEqual(headings, [col[0] for col in cursor.description])
@@ -61,37 +47,42 @@ class MigrationProcessingTest(TestCase):
         with connection.cursor() as cursor:
             cursor.execute("CREATE TABLE temp (test text)")
             migration_processing.create_temp_table(headings)
-            temp = cursor.execute('SELECT * FROM temp')
-            results = cursor.fetchall()
+            cursor.execute('SELECT * FROM temp')
+            cursor.fetchall()
             self.assertEqual(headings, [col[0] for col in cursor.description])
-
-    def test_insert_file(self):
-        mock_file_content = [('abc', 'def', 'hij'), ('klm', 'nop', 'qrs'), ('tuv', 'wxy', 'z')]
-        mock_file_string = 'abc\tdef\thij\nklm\tnop\tqrs\ntuv\twxy\tz'  # '\n'.join(['\t'.join(row) for row in mock_file_content])
-        mock_file_string = StringIO(mock_file_string)
-        with connection.cursor() as cursor:
-            cursor.execute("CREATE TABLE temp (id text, heading2 text, heading3 text)")
-            migration_processing.insert_file(mock_file_string)
-            cursor.execute("SELECT * FROM temp")
-            self.assertEqual(cursor.fetchall(), mock_file_content)
 
     def test_sync_id_column_add_new_id_col(self):
         with connection.cursor() as cursor:
             cursor.execute("CREATE TABLE temp (eventid text, heading2 text, heading3 text)")
             cursor.execute("INSERT INTO temp VALUES ('urn:uuid:ba128c35-5e8f-408f-8597-00b1972dace1', 'a', 'b')")
-            migration_processing.sync_id_column('eventid')
+            self.assertTrue(migration_processing.sync_id_column('eventid'))
             cursor.execute('SELECT * FROM temp')
             columns = [col[0] for col in cursor.description]
             self.assertEqual(dict(zip(columns, cursor.fetchone())), {'eventid': 'urn:uuid:ba128c35-5e8f-408f-8597-00b1972dace1', 'id': 'urn:uuid:ba128c35-5e8f-408f-8597-00b1972dace1', 'heading2': 'a', 'heading3': 'b'})
 
     def test_sync_id_column_replace_id_col(self):
         with connection.cursor() as cursor:
+            cursor.execute("CREATE TABLE temp (id text, occurrenceid text,  eventid text, heading text)")
+            cursor.execute("INSERT INTO temp VALUES ('urn:uuid:1', 'urn:uuid:2', 'urn:uuid:1', 'b')")
+            self.assertTrue(migration_processing.sync_id_column('occurrenceid'))
+            cursor.execute('SELECT * FROM temp')
+            columns = [col[0] for col in cursor.description]
+            self.assertEqual(dict(zip(columns, cursor.fetchone())), {'id': 'urn:uuid:2','occurrenceid':'urn:uuid:2', 'eventid': 'urn:uuid:1', 'heading': 'b'})
+
+    def test_sync_occurrence_id_column_with_event_core(self):
+        with connection.cursor() as cursor:
             cursor.execute("CREATE TABLE temp (id text, occurrenceid text,  heading2 text, heading3 text)")
             cursor.execute("INSERT INTO temp VALUES ('urn:uuid:1', 'urn:uuid:2', 'a', 'b')")
-            migration_processing.sync_id_column('occurrenceid')
+            self.assertTrue(migration_processing.sync_id_column('occurrenceid'))
             cursor.execute('SELECT * FROM temp')
             columns = [col[0] for col in cursor.description]
             self.assertEqual(dict(zip(columns, cursor.fetchone())), {'id': 'urn:uuid:2','occurrenceid':'urn:uuid:2', 'heading2': 'a', 'heading3': 'b'})
+
+    def test_sync_id_column_with_no_coreid_col_returns_false(self):
+        with connection.cursor() as cursor:
+            cursor.execute("CREATE TABLE temp (id text, heading text)")  # This happens e.g. http://data.nina.no:8080/ipt/archive.do?r=arko_strandeng occurrence.txt
+            cursor.execute("INSERT INTO temp VALUES ('urn:uuid:1', 'b')")
+            self.assertFalse(migration_processing.sync_id_column('occurrenceid'))
 
     def test_add_dataset_id(self):
         with connection.cursor() as cursor:
@@ -176,7 +167,7 @@ class MigrationProcessingTest(TestCase):
         ]
         self.assertEqual([model_to_dict(x) for x in ResolvableObjectMigration.objects.all()], expected)
 
-    def test_get_duplicates_works_with_duplicates(self):
+    def test_get_duplicates_works_with_records_with_duplicate_ids(self):
         file = '/code/test_duplicates.txt'
         create_duplicates_file(file)
         with connection.cursor() as cursor:
@@ -196,7 +187,23 @@ class MigrationProcessingTest(TestCase):
             content = f.readlines()
 
         self.assertEqual(len(content), 2)  # Including header
-        result = [x.strip('"').replace('"\n', '') for x in content[1].split('|')]
-        expected = ['x', '{"id": "x", "sname": "c-name"}', 'b_d_id', 'occurrence', '{"id": "x", "sname": "a-name"}', 'a_d_id']
-        self.assertEqual(result, expected)
+        result = [line.rstrip('\n') for line in content]
+        expected = ['x', '{"id":"x","sname":"c-name"}', 'b_d_id', 'occurrence', '{"id": "x", "sname": "a-name"}', 'a_d_id']
+        self.assertEqual(result[1].split('|'), expected)
 
+    def test_get_duplicates_works_with_weird_char_encoding(self):
+        file = '/code/duplicates.txt'
+        create_duplicates_file(file)
+        count = migration_processing.import_dwca('my_dataset_id', '/code/populator/tests/mock_data/bulk/dwca-molltax-v1.195.zip')
+        self.assertEqual(count, 23227)
+        count = migration_processing.import_dwca('my_dataset_id', '/code/populator/tests/mock_data/bulk/dwca-molltax-v1.195.zip')
+        self.assertEqual(count, 0)
+        self.assertEqual(ResolvableObjectMigration.objects.count(), 23227)
+
+        with open(file) as f:
+            content = f.readlines()
+        self.assertEqual(len(content), 23228)
+        os.remove(file)
+
+    def test_occurrence_gets_occurrence_id(self):  # Necessary for event-based datasets
+        pass

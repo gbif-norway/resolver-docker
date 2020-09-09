@@ -1,20 +1,15 @@
-import datetime
 from io import StringIO
-from django.db import connection
 from django.core.management import call_command
 import responses
 from unittest import mock
 from django.test import TestCase
-from zipfile import ZipFile
-from datetime import date
-from populator.management.commands import _migration_processing
 from populator.models import Statistic, ResolvableObject
 
 
 class PopulateResolverTest(TestCase):
     GBIF_API_DATASET_URL = "https://api.gbif.org/v1/dataset/{}"
     endpoints_example = [{'type': 'DWC_ARCHIVE', 'url': 'http://data.gbif.no/archive.do?r=dataset'}]
-    SMALL_TEST_FILE = 'populator/tests/mock_data/occurrence_test_file_small.txt.zip'
+    SMALL_TEST_FILE = 'populator/tests/mock_data/dwca-seabird_estimates-v1.0.zip'
 
     @responses.activate
     def test_populate_resolver_adds_dataset_records_to_resolver(self):
@@ -24,7 +19,7 @@ class PopulateResolverTest(TestCase):
         with open(self.SMALL_TEST_FILE, 'rb') as dwc_zip_stream:
             responses.add(responses.GET, self.endpoints_example[0]['url'], body=dwc_zip_stream.read(), status=200, content_type='application/zip', stream=True)
         call_command('populate_resolver', stdout=StringIO())
-        self.assertEqual(ResolvableObject.objects.count(), 5000)
+        self.assertEqual(ResolvableObject.objects.count(), 20191)
 
     @responses.activate
     def test_adds_total_count_to_website_statistics(self):
@@ -34,18 +29,11 @@ class PopulateResolverTest(TestCase):
         with open(self.SMALL_TEST_FILE, 'rb') as dwc_zip_stream:
             responses.add(responses.GET, self.endpoints_example[0]['url'], body=dwc_zip_stream.read(), status=200, content_type='application/zip', stream=True)
         call_command('populate_resolver', stdout=StringIO())
-        self.assertEqual(Statistic.objects.get_total_count(), 5000)
+        self.assertEqual(Statistic.objects.get_total_count(), 20191)
 
     @responses.activate
     def test_still_adds_records_for_other_valid_cores_with_unsupported_core(self):
-        self.assertEqual(ResolvableObject.objects.count(), 0)
-        self._mock_get_dataset_list()
-        self._mock_get_dataset_detailed_info()
-        with ZipFile(self.SMALL_TEST_FILE, 'r') as file_obj:
-            cores = [('unsupported_core_type', StringIO('file_obj')), ('occurrence', file_obj.open('occurrence.txt'))]
-            with mock.patch('populator.management.commands._gbif_api.get_cores_from_ipt', return_value=cores):
-                call_command('populate_resolver', stdout=StringIO())
-        self.assertEqual(ResolvableObject.objects.count(), 5000)
+        pass
 
     @responses.activate
     def test_skips_metadata_only_endpoints(self):

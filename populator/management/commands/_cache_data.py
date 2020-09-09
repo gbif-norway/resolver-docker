@@ -1,4 +1,5 @@
 from django.db import connection
+import logging
 
 
 def merge_in_new_data(reset=False):
@@ -58,7 +59,6 @@ def reset():
         with connection.cursor() as cursor:
             cursor.execute('DROP TABLE IF EXISTS populator_resolvableobjectmigration')
     except Exception as e:
-        print(e)
-        print('cache data exception')
-        import pdb; pdb.set_trace()
-
+        logger = logging.getLogger(__name__)
+        logger.error(e)
+        logger.error('cache data exception')

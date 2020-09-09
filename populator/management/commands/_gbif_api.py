@@ -31,23 +31,12 @@ def get_dwc_endpoint(endpoints):
     darwin_core_endpoints = [endpoint for endpoint in endpoints if endpoint['type'] == 'DWC_ARCHIVE']
     return next(iter(darwin_core_endpoints), False)
 
-def get_cores_from_ipt(url):
-    try:
-        response = requests.get(url, stream=True)
-        response.raise_for_status()
-        with open('/tmp/tmp.zip', 'wb') as fd:
-            for chunk in response.iter_content(5000):
-                fd.write(chunk)
-        with ZipFile('/tmp/tmp.zip') as zipfile:
-            file_names = zipfile.namelist()
-            file_objects_and_names = [(fn[:-4], zipfile.open(fn)) for fn in file_names if fn[-3:] == 'txt']
-            # Returns e.g. [('occurrence', fileobj), ('multimedia', fileobj)] for occurrence.txt and multimedia.txt files
-            return file_objects_and_names
-    except requests.exceptions.RequestException as e:
-        _log_error(e)
-        return []
-    except BadZipFile:
-        return []
+def get_dwca_and_store_as_tmp_zip(url):
+    response = requests.get(url, stream=True)
+    response.raise_for_status()
+    with open('/tmp/tmp.zip', 'wb') as fd:
+        for chunk in response.iter_content(5000):
+            fd.write(chunk)
 
 def _log_error(e):
     logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
