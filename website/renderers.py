@@ -1,6 +1,5 @@
 from rest_framework.renderers import BaseRenderer
 from rdflib import Graph
-from django.forms.models import model_to_dict
 import json
 
 

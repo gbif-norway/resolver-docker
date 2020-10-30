@@ -8,7 +8,8 @@ from rest_framework.pagination import LimitOffsetPagination
 
 class ResolvableObjectViewSet(viewsets.ReadOnlyModelViewSet):
     """
-    GBIF Norway's resolver provides data published to gbif.org by Norwegian publishers. Query by appending e.g. `?type=dataset` to get a list of all datasets, or `?scientificname=Galium+odoratum` to filter on scientific name.
+    GBIF Norway's resolver provides data published to gbif.org by Norwegian publishers. Query by appending e.g.
+    `?type=dataset` to get a list of all datasets, or `?scientificname=Galium+odoratum` to filter on scientific name.
     """
     renderer_classes = (renderers.JSONRenderer, renderers.BrowsableAPIRenderer, JSONLDRenderer, RDFRenderer)
     queryset = ResolvableObject.objects.all()
@@ -16,6 +17,6 @@ class ResolvableObjectViewSet(viewsets.ReadOnlyModelViewSet):
     pagination_class = CustomPagination
 
     def get_queryset(self):
-        query_params = {key: item for key, item in self.request.query_params.items() if key not in ['offset', 'limit']}
+        query_params = {key: item for key, item in self.request.query_params.items() if key not in ['offset', 'limit', 'format']}
         return ResolvableObject.objects.filter(data__contains=query_params)
 
