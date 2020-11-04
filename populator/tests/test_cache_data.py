@@ -4,6 +4,40 @@ from django.test import TestCase, TransactionTestCase
 from datetime import date, timedelta
 from website.models import ResolvableObject, Dataset
 from django.forms.models import model_to_dict
+from datetime import date
+from website.models import Dataset
+
+
+class SyncDatasetTest(TestCase):
+    def test_sets_deleted_date_for_datasets_not_in_new_migration(self):
+        ids = ['a6c6cead-b5ce-4a4e-8cf5-1542ba708dec', 'd6c6cead-b5ce-4a4e-8cf5-1542ba708ded', 'f6c6cead-b5ce-4a4e-8cf5-1542ba708def']
+        Dataset.objects.create(id=ids[0], data={})
+        Dataset.objects.create(id=ids[1], data={})
+        Dataset.objects.create(id=ids[2], data={})
+        cache_data.sync_datasets([ids[1]])
+        self.assertEqual(Dataset.objects.get(id=ids[0]).deleted_date, date.today())
+        self.assertEqual(Dataset.objects.get(id=ids[1]).deleted_date, None)
+        self.assertEqual(Dataset.objects.get(id=ids[2]).deleted_date, date.today())
+
+    def test_does_no_deletions_if_none_deleted(self):
+        ids = ['a6c6cead-b5ce-4a4e-8cf5-1542ba708dec', 'd6c6cead-b5ce-4a4e-8cf5-1542ba708ded', 'f6c6cead-b5ce-4a4e-8cf5-1542ba708def']
+        for id_ in ids:
+            Dataset.objects.create(id=id_, data={})
+        cache_data.sync_datasets(ids)
+        all_deleted_dates = Dataset.objects.all().values_list('deleted_date', flat=True)
+        self.assertEqual(set(all_deleted_dates), {None})
+        self.assertEqual(set(ResolvableObject.objects.all().values_list('deleted_date', flat=True)), set())
+
+    def test_deletes_records_in_deleted_datasets(self):
+        ids = ['a6c6cead-b5ce-4a4e-8cf5-1542ba708dec', 'd6c6cead-b5ce-4a4e-8cf5-1542ba708ded', 'f6c6cead-b5ce-4a4e-8cf5-1542ba708def']
+        for id_ in ids:
+            d = Dataset.objects.create(id=id_, data={})
+            for i in range(3):
+                ResolvableObject.objects.create(id='{}_{}'.format(id_, i), data={}, type='occurrence', dataset=d)
+        cache_data.sync_datasets([ids[0]])
+        self.assertEqual(set(ResolvableObject.objects.filter(dataset__id=ids[0]).values_list('deleted_date', flat=True)), {None})
+        self.assertEqual(set(ResolvableObject.objects.filter(dataset__id=ids[1]).values_list('deleted_date', flat=True)), {date.today()})
+        self.assertEqual(set(ResolvableObject.objects.filter(dataset__id=ids[2]).values_list('deleted_date', flat=True)), {date.today()})
 
 
 class CacheDataTest(TransactionTestCase):
@@ -12,10 +46,10 @@ class CacheDataTest(TransactionTestCase):
     def setUp(self):
         self.dataset = Dataset.objects.create(id='dataset_id', data={'title': 'My dataset'})
 
-    def create_ro(self, data={}):
+    def create_ro(self, data={}):  # The old data
         ResolvableObject.objects.create(id='a', type='occurrence', dataset=self.dataset, data=data)
 
-    def create_ro_migration(self, data={}, id='a'):
+    def create_ro_migration(self, data={}, id='a'):  # The newly imported data
         ResolvableObjectMigration.objects.create(id=id, type='occurrence', dataset_id=self.dataset.id, data=data)
 
     def assert_equal(self, iterable1, iterable2):  # Necessary as assertEqual does not compare json fields
@@ -86,3 +120,4 @@ class CacheDataTest(TransactionTestCase):
         ResolvableObject.objects.create(id='1', data={'none': 'none'}, deleted_date=past_date_d, dataset=self.dataset, type='occurrence')
         cache_data.merge_in_new_data()
         self.assertEqual(ResolvableObject.objects.first().deleted_date, past_date_d)
+

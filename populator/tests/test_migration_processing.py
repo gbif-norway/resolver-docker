@@ -205,5 +205,5 @@ class MigrationProcessingTest(TestCase):
         self.assertEqual(len(content), 23228)
         os.remove(file)
 
-    def test_occurrence_gets_occurrence_id(self):  # Necessary for event-based datasets
+    def test_occurrence_records_get_occurrence_id(self):  # Necessary for event-based datasets
         pass

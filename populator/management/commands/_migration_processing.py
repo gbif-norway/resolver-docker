@@ -6,6 +6,14 @@ import re
 import logging
 
 
+def get_dataset_id(zip_file_location):
+    with ZipFile(zip_file_location) as zf:
+        with zf.open('eml.xml') as f:
+            eml = str(f.read())
+            uuid_regex = '[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}'
+            return re.search(r'alternateIdentifier>(' + uuid_regex + ')</alternateIdentifier', eml).group(1)
+
+
 def import_dwca(dataset_id, zip_file_location='/tmp/tmp.zip'):
     logger = logging.getLogger(__name__)
     supported_cores = ['occurrence.txt', 'event.txt', 'taxon.txt']
