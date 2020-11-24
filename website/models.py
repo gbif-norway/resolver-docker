@@ -4,7 +4,7 @@ from django.contrib.postgres.indexes import GinIndex
 
 
 class Dataset(models.Model):
-    id = models.CharField(max_length=200, primary_key=True, serialize=False)
+    id = models.CharField(max_length=200, primary_key=True, serialize=False)  # This could also be a uuid field
     data = JSONField()
     created_date = models.DateField(auto_now_add=True)
     deleted_date = models.DateField(null=True, blank=True)
