@@ -194,9 +194,9 @@ class MigrationProcessingTest(TestCase):
     def test_get_duplicates_works_with_weird_char_encoding(self):
         file = '/code/duplicates.txt'
         create_duplicates_file(file)
-        count = migration_processing.import_dwca('my_dataset_id', '/code/populator/tests/mock_data/bulk/dwca-molltax-v1.195.zip')
+        count = migration_processing.import_dwca('my_dataset_id', '/code/populator/tests/mock_data/dwca-molltax-v1.195.zip')
         self.assertEqual(count, 23227)
-        count = migration_processing.import_dwca('my_dataset_id', '/code/populator/tests/mock_data/bulk/dwca-molltax-v1.195.zip')
+        count = migration_processing.import_dwca('my_dataset_id', '/code/populator/tests/mock_data/dwca-molltax-v1.195.zip')
         self.assertEqual(count, 0)
         self.assertEqual(ResolvableObjectMigration.objects.count(), 23227)
 

@@ -33,7 +33,6 @@ class PopulateResolverTest(TestCase):
         call_command('populate_resolver', stdout=StringIO())
         self.assertEqual(Statistic.objects.get_total_count(), 20191)
 
-
     @responses.activate
     def test_adds_total_count_to_website_statistics_b(self):
         self.assertEqual(ResolvableObject.objects.count(), 0)
@@ -116,5 +115,5 @@ class PopulateResolverTest(TestCase):
 
     def _mock_get_dataset_detailed_info(self):
         url = self.GBIF_API_DATASET_URL.format('d34ed8a4-d3cb-473c-a11c-79c5fec4d649')
-        responses.add(responses.GET, url, json={'key':'d34ed8a4-d3cb-473c-a11c-79c5fec4d649', 'endpoints': self.endpoints_example, 'title': "My dataset title with an apostrophe ' in it", 'doi': 'https://purl.org/my-dataset-doi'}, status=200)
+        responses.add(responses.GET, url, json={'key': 'd34ed8a4-d3cb-473c-a11c-79c5fec4d649', 'endpoints': self.endpoints_example, 'title': "My dataset title with an apostrophe ' in it", 'doi': 'https://purl.org/my-dataset-doi'}, status=200)
 

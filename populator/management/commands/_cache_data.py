@@ -21,14 +21,13 @@ def merge_in_new_data(reset=False):
 
     start = datetime.now()
     logger.info('inserted data changes')
-    #with connection.cursor() as cursor:
-    #    cursor.execute(get_insert_history_and_update_sql())
+    with connection.cursor() as cursor:
+        cursor.execute(get_insert_history_and_update_sql())
     logger.info((datetime.now() - start).total_seconds() / 60.0)
 
     logger.info('added new records')
-    import pdb; pdb.set_trace()
-    #with connection.cursor() as cursor:
-    #    cursor.execute(get_add_new_records_sql())
+    with connection.cursor() as cursor:
+        cursor.execute(get_add_new_records_sql())
     logger.info((datetime.now() - start).total_seconds() / 60.0)
 
     logger.info('added deleted date')
@@ -41,8 +40,8 @@ def merge_in_new_data(reset=False):
             LEFT JOIN populator_resolvableobjectmigration AS new ON new.id = old.id
             WHERE new.id IS NULL AND old.deleted_date IS NULL)
         """
-    #with connection.cursor() as cursor:
-    #    cursor.execute(sql)
+    with connection.cursor() as cursor:
+        cursor.execute(sql)
     logger.info((datetime.now() - start).total_seconds() / 60.0)
 
 

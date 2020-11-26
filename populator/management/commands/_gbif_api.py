@@ -1,11 +1,10 @@
-from io import BytesIO
 import logging
-from zipfile import ZipFile, BadZipFile
 import requests
 import sys
 import traceback
 
 GBIF_API_DATASET_URL = "https://api.gbif.org/v1/dataset/{}"
+
 
 def get_dataset_list():
     try:
@@ -17,6 +16,7 @@ def get_dataset_list():
         _log_error(e)
         return []
 
+
 def get_dataset_detailed_info(dataset_key):
     try:
         response = requests.get(GBIF_API_DATASET_URL.format(dataset_key))
@@ -27,9 +27,11 @@ def get_dataset_detailed_info(dataset_key):
         _log_error(e)
         return []
 
+
 def get_dwc_endpoint(endpoints):
     darwin_core_endpoints = [endpoint for endpoint in endpoints if endpoint['type'] == 'DWC_ARCHIVE']
     return next(iter(darwin_core_endpoints), False)
+
 
 def get_dwca_and_store_as_tmp_zip(url):
     response = requests.get(url, stream=True)
@@ -37,6 +39,7 @@ def get_dwca_and_store_as_tmp_zip(url):
     with open('/tmp/tmp.zip', 'wb') as fd:
         for chunk in response.iter_content(5000):
             fd.write(chunk)
+
 
 def _log_error(e):
     logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
