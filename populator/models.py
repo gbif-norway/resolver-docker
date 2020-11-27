@@ -19,10 +19,14 @@ class History(models.Model):
 # Need to store count of dwc objects manually as it's too time consuming to calculate on the fly
 class StatisticsManager(models.Manager):
     def get_total_count(self):
-        return self.get(name='total_count').value
+        try:
+            return self.get(name='total_count').value
+        except self.model.DoesNotExist:
+            return self.set_total_count()
 
-    def set_total_count(self, value):
-        self.update_or_create(name='total_count', value=value)
+    def set_total_count(self):
+        statistic, created = self.update_or_create(name='total_count', value=ResolvableObject.objects.count())
+        return statistic.value
 
 
 class Statistic(models.Model):

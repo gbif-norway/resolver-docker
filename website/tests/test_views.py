@@ -10,7 +10,7 @@ class ResolverViewTests(APITestCase):
         self.dataset = Dataset.objects.create(id='dataset_id', data={'title': 'My dataset'})
 
     def test_displays_index(self):
-        Statistic.objects.set_total_count(0)
+        Statistic.objects.set_total_count()
         response = self.client.get('/')
         self.assertEqual(response.status_code, 200)
 
@@ -19,14 +19,14 @@ class ResolverViewTests(APITestCase):
         self.assertTrue(response.status_code == 404)
 
     def test_filters_do_not_break_with_paginator(self):
-        Statistic.objects.set_total_count(0)
+        Statistic.objects.set_total_count()
         response = self.client.get(reverse('resolvableobject-list') + '?offset=10&limit=20', HTTP_ACCEPT='application/ld+json')
         self.assertEqual(response.status_code, 200)
 
     def test_displays_all_results(self):
         for item in 'abcde':
             ResolvableObject.objects.create(id=item, data={'test': item}, dataset=self.dataset)
-        Statistic.objects.set_total_count(5) # Total count has to be manually pre-set when database is populated to return results here, too slow to calculate on the fly
+        Statistic.objects.set_total_count()  # Total count must be manually pre-set when database is populated to return results here, too slow to calculate on the fly
         response = self.client.get(reverse('resolvableobject-list') + '?limit=10', HTTP_ACCEPT='application/ld+json')
         results = json.loads(response.content.decode('utf-8').lower())
         self.assertEqual(len(results['results']), 5)
