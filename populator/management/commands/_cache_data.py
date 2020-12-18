@@ -20,17 +20,16 @@ def merge_in_new_data(reset=False):
     #     return
 
     start = datetime.now()
-    logger.info('inserted data changes')
     with connection.cursor() as cursor:
         cursor.execute(get_insert_history_and_update_sql())
-    logger.info((datetime.now() - start).total_seconds() / 60.0)
+    logger.info('inserted data changes {}'.format(datetime.now() - start))
+    start = datetime.now()
 
-    logger.info('added new records')
     with connection.cursor() as cursor:
         cursor.execute(get_add_new_records_sql())
-    logger.info((datetime.now() - start).total_seconds() / 60.0)
+    logger.info('added new records {}'.format(datetime.now() - start))
+    start = datetime.now()
 
-    logger.info('added deleted date')
     sql = """
         UPDATE website_resolvableobject
             SET deleted_date = CURRENT_DATE
@@ -42,7 +41,7 @@ def merge_in_new_data(reset=False):
         """
     with connection.cursor() as cursor:
         cursor.execute(sql)
-    logger.info((datetime.now() - start).total_seconds() / 60.0)
+    logger.info('added deleted dates {}'.format(datetime.now() - start))
 
 
 def reset():

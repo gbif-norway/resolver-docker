@@ -147,6 +147,24 @@ class MigrationProcessingTest(TestCase):
         ]
         self.assertEqual([model_to_dict(x) for x in ResolvableObjectMigration.objects.all()], expected)
 
+    def test_remove_duplicates(self):
+        with connection.cursor() as cursor:
+            cursor.execute('CREATE TABLE temp (id text, sname text)')
+            cursor.execute("INSERT INTO temp VALUES ('x', 'a-name')")
+            cursor.execute("INSERT INTO temp VALUES ('b', 'b-name')")
+        migration_processing.insert_json_into_migration_table('a_d_id', 'occurrence')
+
+        with connection.cursor() as cursor:
+            cursor.execute('DROP TABLE temp')
+            cursor.execute('CREATE TABLE temp (id text, sname text)')
+            cursor.execute("INSERT INTO temp VALUES ('x', 'c-name')")
+            cursor.execute("INSERT INTO temp VALUES ('d', 'd-name')")
+        migration_processing.remove_duplicates()
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT COUNT(*) FROM temp')
+            temp_count = cursor.fetchone()[0]
+        self.assertEqual(temp_count, 1)
+
     def test_insert_with_previous_dataset_with_duplicates_keeps_first_result(self):
         with connection.cursor() as cursor:
             cursor.execute('CREATE TABLE temp (id text, sname text)')
@@ -159,15 +177,17 @@ class MigrationProcessingTest(TestCase):
             cursor.execute('CREATE TABLE temp (id text, sname text)')
             cursor.execute("INSERT INTO temp VALUES ('x', 'c-name')")
             cursor.execute("INSERT INTO temp VALUES ('d', 'd-name')")
+        migration_processing.remove_duplicates()
         migration_processing.insert_json_into_migration_table('b_d_id', 'occurrence')
         expected = [
-            {'id': 'x', 'data': {'id': 'x', 'sname': 'a-name'}, 'type': 'occurrence', 'dataset_id': 'a_d_id'},
             {'id': 'b', 'data': {'id': 'b', 'sname': 'b-name'}, 'type': 'occurrence', 'dataset_id': 'a_d_id'},
+            {'id': 'x', 'data': {'id': 'x', 'sname': 'a-name'}, 'type': 'occurrence', 'dataset_id': 'a_d_id'},
             {'id': 'd', 'data': {'id': 'd', 'sname': 'd-name'}, 'type': 'occurrence', 'dataset_id': 'b_d_id'},
         ]
-        self.assertEqual([model_to_dict(x) for x in ResolvableObjectMigration.objects.all()], expected)
+        results = [model_to_dict(x) for x in ResolvableObjectMigration.objects.all()]
+        self.assertEqual(results, expected)
 
-    def test_get_duplicates_works_with_records_with_duplicate_ids(self):
+    def test_record_duplicates_works_with_records_with_duplicate_ids(self):
         file = '/code/test_duplicates.txt'
         create_duplicates_file(file)
         with connection.cursor() as cursor:
@@ -181,7 +201,7 @@ class MigrationProcessingTest(TestCase):
             cursor.execute('CREATE TABLE temp (id text, sname text)')
             cursor.execute("INSERT INTO temp VALUES ('x', 'c-name')")
             cursor.execute("INSERT INTO temp VALUES ('d', 'd-name')")
-        migration_processing.get_duplicates('b_d_id', 'occurrence', file)
+        migration_processing.record_duplicates('b_d_id', 'occurrence', file)
 
         with open(file) as f:
             content = f.readlines()
@@ -191,7 +211,7 @@ class MigrationProcessingTest(TestCase):
         expected = ['x', '{"id":"x","sname":"c-name"}', 'b_d_id', 'occurrence', '{"id": "x", "sname": "a-name"}', 'a_d_id']
         self.assertEqual(result[1].split('|'), expected)
 
-    def test_get_duplicates_works_with_weird_char_encoding(self):
+    def test_record_duplicates_works_with_weird_char_encoding(self):
         file = '/code/duplicates.txt'
         create_duplicates_file(file)
         count = migration_processing.import_dwca('my_dataset_id', '/code/populator/tests/mock_data/dwca-molltax-v1.195.zip')

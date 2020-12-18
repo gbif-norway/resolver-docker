@@ -5,7 +5,7 @@ from populator.management.commands import _gbif_api, _migration_processing, _cac
 import json
 import logging
 from django.db import connection
-from os import listdir
+import time
 
 
 class Command(BaseCommand):
@@ -27,14 +27,16 @@ class Command(BaseCommand):
 
         # Set up for import
         create_duplicates_file()
-        #reset_import_table()
+        reset_import_table()
         dataset_ids = []
 
+        overall_start = time.time()
         # Iterate over GBIF datasets
         for dataset in dataset_list:
             if skip or dataset['key'] in big:
                 logger.info('skip')
                 continue
+            start = time.time()
 
             # Get dataset details, skip metadata datasets for now
             dataset_details = _gbif_api.get_dataset_detailed_info(dataset['key'])
@@ -48,13 +50,17 @@ class Command(BaseCommand):
             _gbif_api.get_dwca_and_store_as_tmp_zip(endpoint['url'])
             _migration_processing.import_dwca(dataset['key'])
             dataset_ids.append(dataset['key'])
-            logger.info('fin')
+            logger.info('fin inserting dataset, took {} -- {}'.format(dataset['key'], time.time() - start))
 
-        logger.info('merging in')
+        logger.info('total time: {}, merging in starts next'.format(time.time() - overall_start))
+        start = time.time()
         _cache_data.sync_datasets(dataset_ids)
+        logger.info('caching complete {}'.format(time.time() - start))
+        start = time.time()
         _cache_data.merge_in_new_data(False)  # options['reset']
-        logger.info('merging complete')
-        logger.info(Statistic.objects.set_total_count())
+        logger.info('merging complete {}'.format(time.time() - start))
+        total_count = Statistic.objects.set_total_count()
+        logger.info('finished - total count now set: {}'.format(total_count))
 
 
 def create_duplicates_file(file='/code/duplicates.txt'):
@@ -66,7 +72,13 @@ def insert_dataset(dataset):
     dataset['label'] = dataset['title']
     dataset['sameas'] = dataset['doi']
     del dataset['title'], dataset['doi']
-    Dataset.objects.get_or_create(id=dataset['key'], data=json.dumps(dataset))
+    try:
+        dataset_object = Dataset.objects.get(id=dataset['key'])
+        dataset_object.data = json.dumps(dataset)
+        dataset_object.save()
+    except Dataset.DoesNotExist:
+        dataset_object = Dataset.objects.create(id=dataset['key'], data=json.dumps(dataset))
+    return dataset_object
 
 
 def reset_import_table():

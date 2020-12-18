@@ -4,6 +4,7 @@ import responses
 from unittest import mock
 from django.test import TestCase
 from populator.models import Statistic, ResolvableObject
+from website.models import Dataset
 
 
 class PopulateResolverTest(TestCase):
@@ -18,9 +19,32 @@ class PopulateResolverTest(TestCase):
         self._mock_get_dataset_list()
         self._mock_get_dataset_detailed_info()
         with open(self.SMALL_TEST_FILE, 'rb') as dwc_zip_stream:
-            responses.add(responses.GET, self.endpoints_example[0]['url'], body=dwc_zip_stream.read(), status=200, content_type='application/zip', stream=True)
+            responses.add(responses.GET, self.endpoints_example[0]['url'], body=dwc_zip_stream.read(), status=200,
+                          content_type='application/zip', stream=True)
         call_command('populate_resolver', stdout=StringIO())
         self.assertEqual(ResolvableObject.objects.count(), 20191)
+
+    @responses.activate
+    def test_populate_resolver_adds_dataset(self):
+        self.assertEqual(Dataset.objects.count(), 0)
+        self._mock_get_dataset_list()
+        self._mock_get_dataset_detailed_info()
+        with open(self.SMALL_TEST_FILE, 'rb') as dwc_zip_stream:
+            responses.add(responses.GET, self.endpoints_example[0]['url'], body=dwc_zip_stream.read(), status=200, content_type='application/zip', stream=True)
+        call_command('populate_resolver', stdout=StringIO())
+        self.assertEqual(Dataset.objects.count(), 1)
+
+    @responses.activate
+    def test_populate_resolver_updates_dataset(self):
+        Dataset.objects.get_or_create(id='d34ed8a4-d3cb-473c-a11c-79c5fec4d649', data={})
+        self.assertEqual(Dataset.objects.count(), 1)
+        self._mock_get_dataset_list()
+        self._mock_get_dataset_detailed_info()
+        with open(self.SMALL_TEST_FILE, 'rb') as dwc_zip_stream:
+            responses.add(responses.GET, self.endpoints_example[0]['url'], body=dwc_zip_stream.read(), status=200, content_type='application/zip', stream=True)
+        call_command('populate_resolver', stdout=StringIO())
+        self.assertEqual(Dataset.objects.count(), 1)
+        self.assertEqual(Dataset.objects.all().first().id, 'd34ed8a4-d3cb-473c-a11c-79c5fec4d649')
 
     @responses.activate
     def test_adds_total_count_to_website_statistics(self):

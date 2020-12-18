@@ -1,9 +1,10 @@
 from django.db import connection, transaction, utils
 from zipfile import ZipFile, BadZipFile
-from datetime import datetime
+from datetime import datetime, timedelta
 import psycopg2 as p
 import re
 import logging
+import os
 
 
 def get_dataset_id(zip_file_location):
@@ -25,7 +26,6 @@ def import_dwca(dataset_id, zip_file_location='/tmp/tmp.zip'):
                 with zf.open(file_name) as f:
                     logger.info('about to import ' + file_name)
                     now = datetime.now()
-                    logger.info(now)
                     create_temp_table(get_columns(f.readline()))
                     try:
                         import_file(f)
@@ -37,16 +37,25 @@ def import_dwca(dataset_id, zip_file_location='/tmp/tmp.zip'):
                         logger.error(e)
                         logger.error('file_name')
                         continue
-                    logger.info('fin')
-                    logger.info(datetime.now() - now)
+                    logger.info('fin copy from stdin, took {}'.format(str(datetime.now() - now)))
+                    now = datetime.now()
 
                     core_type = re.sub('\.txt$', '', file_name)
                     if not sync_id_column(get_core_id(core_type)):
+                        logger.info('Warning: could not sync id column for {}'.format(core_type))
                         return 0
-                    get_duplicates(dataset_id, core_type)
+
+                    record_duplicates(dataset_id, core_type)
+                    remove_duplicates()
+                    logger.info('fin get duplicates, took {}'.format(datetime.now() - now))
+                    now = datetime.now()
+                    create_index()
+                    logger.info('fin creating index {}, took {}'.format(count, datetime.now() - now))
+                    now = datetime.now()
                     count += insert_json_into_migration_table(dataset_id, core_type)
-                    logger.info('inserted {}'.format(count))
+                    logger.info('fin inserted {}, took {}'.format(count, datetime.now() - now))
     except BadZipFile:
+        logger.error('Bad zip')
         return 0
 
     return count
@@ -74,11 +83,12 @@ def create_temp_table(columns):
 
 
 def get_core_id(core_type):
-    print(core_type)
     CORE_ID_MAPPINGS = {'event': 'eventid', 'occurrence': 'occurrenceid', 'extendedmeasurementorfact': 'measurementid', 'measurementorfact': 'measurementid', 'taxon': 'taxonid'}
     try:
         return CORE_ID_MAPPINGS[core_type]
     except KeyError as e:
+        logger = logging.getLogger(__name__)
+        logger.error('Key error for core type {}'.format(core_type))
         return False
 
 
@@ -90,8 +100,12 @@ def sync_id_column(id_column):
                 cursor.execute("ALTER TABLE temp ADD COLUMN id text")
             cursor.execute("UPDATE temp SET id = %s" % id_column)
     except p.errors.UndefinedColumn:
+        logger = logging.getLogger(__name__)
+        logger.error('Undefined column')
         return False
     except utils.ProgrammingError:
+        logger = logging.getLogger(__name__)
+        logger.error('Programming error')
         return False
     return True
 
@@ -104,7 +118,7 @@ def add_dataset_id(dataset_id):
             cursor.execute("UPDATE temp SET datasetid = '%s'" % dataset_id)
 
 
-def get_duplicates(dataset_id, core_type, file='/code/duplicates.txt'):
+def record_duplicates(dataset_id, core_type, file='/code/duplicates.txt'):
     with connection.cursor() as cursor:
         query = ("""
         SELECT 
@@ -124,12 +138,49 @@ def get_duplicates(dataset_id, core_type, file='/code/duplicates.txt'):
             cursor.copy_expert(outputquery, f)
 
 
-def insert_json_into_migration_table(dataset_id, core_type):
-    make_json_sql = """SELECT temp.id, row_to_json(temp), '{0}', '{1}'
-                       FROM temp LEFT JOIN populator_resolvableobjectmigration AS j ON j.id = temp.id
-                       WHERE j.id IS NULL;""".format(dataset_id, core_type)
-    insert_sql = 'INSERT INTO populator_resolvableobjectmigration(id, data, dataset_id, type) ' + make_json_sql
+def remove_duplicates():
     with connection.cursor() as cursor:
-        cursor.execute(insert_sql)
-        return cursor.rowcount
+        select = 'SELECT temp.id FROM temp LEFT JOIN populator_resolvableobjectmigration as j on j.id = temp.id ' \
+                 'WHERE j.id IS NOT NULL'
+        query = 'DELETE FROM temp WHERE temp.id IN ({})'.format(select)
+        cursor.execute(query)
 
+
+def get_temp_count():
+    with connection.cursor() as cursor:
+        cursor.execute('SELECT COUNT(*) FROM temp;')
+        return cursor.fetchone()[0]
+
+
+def insert_json_into_migration_table(dataset_id, core_type):
+    step = 300000
+    count = 0
+    for i in range(0, get_temp_count(), step):
+        logger = logging.getLogger(__name__)
+        logger.info('Migration loop: {}'.format(i))
+        make_json_sql = """SELECT temp.id, row_to_json(temp), '{0}', '{1}'
+                           FROM temp ORDER BY temp.id LIMIT {2} OFFSET {3};""".format(dataset_id, core_type, step, i)
+        insert_sql = 'INSERT INTO populator_resolvableobjectmigration(id, data, dataset_id, type) ' + make_json_sql
+        db = create_keepalive_connection()
+        with db.cursor() as cursor:
+            cursor.execute(insert_sql)
+            count += cursor.rowcount
+        db.close()
+    return count
+
+
+def create_index():
+    db = create_keepalive_connection()
+    with db.cursor() as cursor:
+        cursor.execute('CREATE INDEX idx_id ON temp(id)')
+    db.close()
+
+
+def create_keepalive_connection():
+    db = p.connect(dbname=os.environ.get('SQL_DATABASE'),
+                   user=os.environ.get('SQL_USER'),
+                   password=os.environ.get('SQL_PASSWORD'),
+                   host=os.environ.get('SQL_HOST'),
+                   port=os.environ.get('SQL_PORT', '5432'),
+                   keepalives=1, keepalives_idle=30, keepalives_interval=10, keepalives_count=5)
+    return db
