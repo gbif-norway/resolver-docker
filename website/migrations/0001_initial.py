@@ -19,7 +19,6 @@ class Migration(migrations.Migration):
                 ('id', models.CharField(max_length=200, primary_key=True, serialize=False)),
                 ('data', models.JSONField()),
                 ('created_date', models.DateField(auto_now_add=True)),
-                ('modified_date', models.DateField(auto_now=True)),
                 ('deleted_date', models.DateField(blank=True, null=True)),
             ],
         ),

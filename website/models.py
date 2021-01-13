@@ -7,7 +7,6 @@ class Dataset(models.Model):
     id = models.CharField(max_length=200, primary_key=True, serialize=False)  # This could also be a uuid field
     data = JSONField()
     created_date = models.DateField(auto_now_add=True)
-    modified_date = models.DateField(auto_now=True)
     deleted_date = models.DateField(null=True, blank=True)
 
 
