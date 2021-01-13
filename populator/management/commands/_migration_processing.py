@@ -161,26 +161,31 @@ def insert_json_into_migration_table(dataset_id, core_type):
         make_json_sql = """SELECT temp.id, row_to_json(temp), '{0}', '{1}'
                            FROM temp ORDER BY temp.id LIMIT {2} OFFSET {3};""".format(dataset_id, core_type, step, i)
         insert_sql = 'INSERT INTO populator_resolvableobjectmigration(id, data, dataset_id, type) ' + make_json_sql
-        db = create_keepalive_connection()
-        with db.cursor() as cursor:
+        with connection.cursor() as cursor:
             cursor.execute(insert_sql)
             count += cursor.rowcount
-        db.close()
+        #db = create_keepalive_connection()
+        #with db.cursor() as cursor:
+        #    cursor.execute(insert_sql)
+        #    count += cursor.rowcount
+        #db.close()
     return count
 
 
 def create_index():
-    db = create_keepalive_connection()
-    with db.cursor() as cursor:
+    #db = create_keepalive_connection()
+    #with db.cursor() as cursor:
+    #    cursor.execute('CREATE INDEX idx_id ON temp(id)')
+    #db.close()
+    with connection.cursor() as cursor:
         cursor.execute('CREATE INDEX idx_id ON temp(id)')
-    db.close()
 
 
 def create_keepalive_connection():
-    db = p.connect(dbname=os.environ.get('SQL_DATABASE'),
-                   user=os.environ.get('SQL_USER'),
-                   password=os.environ.get('SQL_PASSWORD'),
-                   host=os.environ.get('SQL_HOST'),
-                   port=os.environ.get('SQL_PORT', '5432'),
+    db = p.connect(dbname=connection.settings_dict['NAME'],
+                   user=connection.settings_dict['USER'],
+                   password=connection.settings_dict['PASSWORD'],
+                   host=connection.settings_dict['HOST'],
+                   port=connection.settings_dict['PORT'],
                    keepalives=1, keepalives_idle=30, keepalives_interval=10, keepalives_count=5)
     return db

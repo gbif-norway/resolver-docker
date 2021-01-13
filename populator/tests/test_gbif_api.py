@@ -8,8 +8,8 @@ class GbifApiTest(TestCase):
 
     @responses.activate
     def test_get_dataset_list(self):
-        mock_datasets = [{'key': 'b124e1e0-4755-430f-9eab-894f25a9b59c'}, {'key': 'd34ed8a4-d3cb-473c-a11c-79c5fec4d649'}, {'key': 'd34ed8a4-d3cb-473c-a11c-79c5fec4d649'}]
-        mock_json = {'offset': 0, 'limit': 200, 'endOfRecords': 1, 'count': 200, 'results': mock_datasets}
+        mock_datasets = [{'key': 'a124e1e0-4755-430f-9eab-894f25a9b59c'}, {'key': 'd34ed8a4-d3cb-473c-a11c-79c5fec4d649'}, {'key': 'd34ed8a4-d3cb-473c-a11c-79c5fec4d649'}]
+        mock_json = {'offset': 0, 'limit': 200, 'endOfRecords': 1, 'count': 1, 'results': mock_datasets}
         api_url = self.GBIF_API_DATASET_URL.format('search?limit=5000&publishingCountry=NO')
         responses.add(responses.GET, api_url, json=mock_json, status=200)  # A mock for the API call
 
