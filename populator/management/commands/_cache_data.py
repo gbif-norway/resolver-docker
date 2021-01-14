@@ -1,9 +1,6 @@
 from django.db import connection
-from django.db import utils
-import psycopg2
 import logging
 from website.models import Dataset, ResolvableObject
-from populator.models import ResolvableObjectMigration
 from datetime import date, datetime
 
 
@@ -22,12 +19,12 @@ def merge_in_new_data(reset=False):
     start = datetime.now()
     with connection.cursor() as cursor:
         cursor.execute(get_insert_history_and_update_sql())
-    logger.info('inserted data changes {}'.format(datetime.now() - start))
+    log_time(start, 'inserted date changes')
     start = datetime.now()
 
     with connection.cursor() as cursor:
         cursor.execute(get_add_new_records_sql())
-    logger.info('added new records {}'.format(datetime.now() - start))
+    log_time(start, 'added new records')
     start = datetime.now()
 
     sql = """
@@ -41,7 +38,7 @@ def merge_in_new_data(reset=False):
         """
     with connection.cursor() as cursor:
         cursor.execute(sql)
-    logger.info('added deleted dates {}'.format(datetime.now() - start))
+    log_time(start, 'added deleted dates')
 
 
 def reset():
@@ -56,6 +53,12 @@ def reset():
         logger = logging.getLogger(__name__)
         logger.error(e)
         logger.error('cache data exception')
+
+
+def log_time(start, message):
+    logger = logging.getLogger(__name__)
+    time_string = datetime.now() - start
+    logger.info('{}    - time taken - {}'.format(message, str(time_string)[:7]))
 
 
 def get_insert_history_and_update_sql():
