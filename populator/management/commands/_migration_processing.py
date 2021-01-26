@@ -103,6 +103,7 @@ def sync_id_column(id_column):
         with connection.cursor() as cursor:  # Some NHM datasets have purl IDs in othercatalognumbers
             cursor.execute("SELECT COUNT(*) FROM information_schema.columns WHERE table_name='temp' and column_name='othercatalognumbers';")
             if cursor.fetchone()[0] == 1:
+                cursor.execute("UPDATE temp SET id = othercatalognumbers WHERE othercatalognumbers ~ '[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12}'")
                 cursor.execute("UPDATE temp SET id = REPLACE(othercatalognumbers, 'http://purl.org/nhmuio/id/', '') WHERE othercatalognumbers LIKE 'http://purl.org/nhmuio/id/%'")
     except p.errors.UndefinedColumn:
         logger = logging.getLogger(__name__)
