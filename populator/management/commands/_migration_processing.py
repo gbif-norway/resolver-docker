@@ -45,6 +45,7 @@ def import_dwca(dataset_id, zip_file_location='/tmp/tmp.zip'):
                         logger.info('Warning: could not sync id column for {}'.format(core_type))
                         return 0
 
+                    purlfriendly_id_column()
                     record_duplicates(dataset_id, core_type)
                     remove_duplicates()
                     logger.info('fin get duplicates, took {}'.format(datetime.now() - now))
@@ -99,6 +100,10 @@ def sync_id_column(id_column):
             if cursor.fetchone()[0] == 0:
                 cursor.execute("ALTER TABLE temp ADD COLUMN id text")
             cursor.execute("UPDATE temp SET id = %s" % id_column)
+        with connection.cursor() as cursor:  # Some NHM datasets have purl IDs in othercatalognumbers
+            cursor.execute("SELECT COUNT(*) FROM information_schema.columns WHERE table_name='temp' and column_name='othercatalognumbers';")
+            if cursor.fetchone()[0] == 1:
+                cursor.execute("UPDATE temp SET id = REPLACE(othercatalognumbers, 'http://purl.org/nhmuio/id/', '') WHERE othercatalognumbers LIKE 'http://purl.org/nhmuio/id/%'")
     except p.errors.UndefinedColumn:
         logger = logging.getLogger(__name__)
         logger.error('Undefined column')
@@ -108,6 +113,13 @@ def sync_id_column(id_column):
         logger.error('Programming error')
         return False
     return True
+
+
+def purlfriendly_id_column():  # PURL breaks when there is a ":" in the URL
+    with connection.cursor() as cursor:
+        cursor.execute("UPDATE temp SET id = REPLACE(id, 'urn:uuid:', '')")
+    with connection.cursor() as cursor:
+        cursor.execute("UPDATE temp SET id = REPLACE(id, 'http://purl.org/nhmuio/id/', '')")
 
 
 def add_dataset_id(dataset_id):

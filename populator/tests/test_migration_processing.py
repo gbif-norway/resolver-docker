@@ -67,7 +67,43 @@ class MigrationProcessingTest(TestCase):
             self.assertTrue(migration_processing.sync_id_column('occurrenceid'))
             cursor.execute('SELECT * FROM temp')
             columns = [col[0] for col in cursor.description]
-            self.assertEqual(dict(zip(columns, cursor.fetchone())), {'id': 'urn:uuid:2','occurrenceid':'urn:uuid:2', 'eventid': 'urn:uuid:1', 'heading': 'b'})
+            self.assertEqual(dict(zip(columns, cursor.fetchone())), {'id': 'urn:uuid:2', 'occurrenceid':'urn:uuid:2', 'eventid': 'urn:uuid:1', 'heading': 'b'})
+
+    def test_sync_id_with_purl_othercatalognumbers(self):
+        with connection.cursor() as cursor:
+            cursor.execute("CREATE TABLE temp (id text, occurrenceid text, othercatalognumbers text)")
+            cursor.execute("INSERT INTO temp VALUES ('urn:uuid:1', 'urn:uuid:1', 'http://purl.org/nhmuio/id/abc')")
+            self.assertTrue(migration_processing.sync_id_column('occurrenceid'))
+            cursor.execute('SELECT * FROM temp')
+            columns = [col[0] for col in cursor.description]
+            self.assertEqual(dict(zip(columns, cursor.fetchone())), {'id': 'abc', 'occurrenceid': 'urn:uuid:1', 'othercatalognumbers': 'http://purl.org/nhmuio/id/abc'})
+
+    def test_sync_id_with_invalid_othercatalognumbers(self):
+        with connection.cursor() as cursor:
+            cursor.execute("CREATE TABLE temp (id text, occurrenceid text, othercatalognumbers text)")
+            cursor.execute("INSERT INTO temp VALUES ('urn:uuid:1', 'urn:uuid:1', 'abc')")
+            self.assertTrue(migration_processing.sync_id_column('occurrenceid'))
+            cursor.execute('SELECT * FROM temp')
+            columns = [col[0] for col in cursor.description]
+            self.assertEqual(dict(zip(columns, cursor.fetchone())), {'id': 'urn:uuid:1', 'occurrenceid': 'urn:uuid:1', 'othercatalognumbers': 'abc'})
+
+    def test_purlfriendly_id_column_with_uuid(self):
+        with connection.cursor() as cursor:
+            cursor.execute("CREATE TABLE temp (id text)")
+            cursor.execute("INSERT INTO temp VALUES ('urn:uuid:1')")
+            migration_processing.purlfriendly_id_column()
+            cursor.execute('SELECT * FROM temp')
+            columns = [col[0] for col in cursor.description]
+            self.assertEqual(dict(zip(columns, cursor.fetchone())), {'id': '1'})
+
+    def test_purlfriendly_id_column_with_url(self):
+        with connection.cursor() as cursor:
+            cursor.execute("CREATE TABLE temp (id text)")
+            cursor.execute("INSERT INTO temp VALUES ('http://purl.org/nhmuio/id/1')")
+            migration_processing.purlfriendly_id_column()
+            cursor.execute('SELECT * FROM temp')
+            columns = [col[0] for col in cursor.description]
+            self.assertEqual(dict(zip(columns, cursor.fetchone())), {'id': '1'})
 
     def test_sync_occurrence_id_column_with_event_core(self):
         with connection.cursor() as cursor:
