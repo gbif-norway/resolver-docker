@@ -87,6 +87,24 @@ class MigrationProcessingTest(TestCase):
             columns = [col[0] for col in cursor.description]
             self.assertEqual(dict(zip(columns, cursor.fetchone())), {'id': 'b55cbe46-5f2f-4c07-8223-9d4b0c8ed811', 'occurrenceid': 'urn:uuid:1', 'othercatalognumbers': 'b55cbe46-5f2f-4c07-8223-9d4b0c8ed811'})
 
+    def test_sync_id_with_multiple_othercatalognumbers(self):
+        with connection.cursor() as cursor:
+            cursor.execute("CREATE TABLE temp (id text, occurrenceid text, othercatalognumbers text)")
+            cursor.execute("INSERT INTO temp VALUES ('urn:uuid:1', 'urn:uuid:1', 'b55cbe46-5f2f-4c07-8223-9d4b0c8ed811|a55cbe46-5f2f-4c07-8223-9d4b0c8ed811')")
+            self.assertTrue(migration_processing.sync_id_column('occurrenceid'))
+            cursor.execute('SELECT * FROM temp')
+            columns = [col[0] for col in cursor.description]
+            self.assertEqual(dict(zip(columns, cursor.fetchone())), {'id': 'b55cbe46-5f2f-4c07-8223-9d4b0c8ed811', 'occurrenceid': 'urn:uuid:1', 'othercatalognumbers': 'b55cbe46-5f2f-4c07-8223-9d4b0c8ed811|a55cbe46-5f2f-4c07-8223-9d4b0c8ed811'})
+
+    def test_sync_id_with_duplicate_othercatalognumbers(self):
+        with connection.cursor() as cursor:
+            cursor.execute("CREATE TABLE temp (id text, occurrenceid text, othercatalognumbers text)")
+            cursor.execute("INSERT INTO temp VALUES ('urn:uuid:1', 'urn:uuid:1', 'b55cbe46-5f2f-4c07-8223-9d4b0c8ed811')")
+            cursor.execute("INSERT INTO temp VALUES ('urn:uuid:2', 'urn:uuid:2', 'b55cbe46-5f2f-4c07-8223-9d4b0c8ed811')")
+            self.assertTrue(migration_processing.sync_id_column('occurrenceid'))
+            cursor.execute('SELECT * FROM temp')
+            self.assertEqual([('urn:uuid:1', 'urn:uuid:1', ''), ('urn:uuid:2', 'urn:uuid:2', '')], cursor.fetchall())
+
     def test_sync_id_with_invalid_othercatalognumbers(self):
         with connection.cursor() as cursor:
             cursor.execute("CREATE TABLE temp (id text, occurrenceid text, othercatalognumbers text)")
