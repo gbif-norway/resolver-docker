@@ -94,16 +94,20 @@ class MigrationProcessingTest(TestCase):
             self.assertTrue(migration_processing.sync_id_column('occurrenceid'))
             cursor.execute('SELECT * FROM temp')
             columns = [col[0] for col in cursor.description]
-            self.assertEqual(dict(zip(columns, cursor.fetchone())), {'id': 'b55cbe46-5f2f-4c07-8223-9d4b0c8ed811', 'occurrenceid': 'urn:uuid:1', 'othercatalognumbers': 'b55cbe46-5f2f-4c07-8223-9d4b0c8ed811|a55cbe46-5f2f-4c07-8223-9d4b0c8ed811'})
+            # Note that the second othercatalognumber gets deleted
+            self.assertEqual(dict(zip(columns, cursor.fetchone())), {'id': 'b55cbe46-5f2f-4c07-8223-9d4b0c8ed811', 'occurrenceid': 'urn:uuid:1', 'othercatalognumbers': 'b55cbe46-5f2f-4c07-8223-9d4b0c8ed811'})
 
     def test_sync_id_with_duplicate_othercatalognumbers(self):
         with connection.cursor() as cursor:
             cursor.execute("CREATE TABLE temp (id text, occurrenceid text, othercatalognumbers text)")
             cursor.execute("INSERT INTO temp VALUES ('urn:uuid:1', 'urn:uuid:1', 'b55cbe46-5f2f-4c07-8223-9d4b0c8ed811')")
             cursor.execute("INSERT INTO temp VALUES ('urn:uuid:2', 'urn:uuid:2', 'b55cbe46-5f2f-4c07-8223-9d4b0c8ed811')")
+            cursor.execute("INSERT INTO temp VALUES ('urn:uuid:3', 'urn:uuid:3', '3136D80A-E74C-11E4-A2DC-00155D012A60')")
+            cursor.execute("INSERT INTO temp VALUES ('urn:uuid:4', 'urn:uuid:4', '3136D80A-E74C-11E4-A2DC-00155D012A60,5FF9E4CE-E74D-11E4-891B-00155D012A60')")
             self.assertTrue(migration_processing.sync_id_column('occurrenceid'))
             cursor.execute('SELECT * FROM temp')
-            self.assertEqual([('urn:uuid:1', 'urn:uuid:1', ''), ('urn:uuid:2', 'urn:uuid:2', '')], cursor.fetchall())
+            self.assertEqual([('urn:uuid:1', 'urn:uuid:1', ''), ('urn:uuid:2', 'urn:uuid:2', ''),
+                              ('urn:uuid:3', 'urn:uuid:3', ''), ('urn:uuid:4', 'urn:uuid:4', '')], cursor.fetchall())
 
     def test_sync_id_with_invalid_othercatalognumbers(self):
         with connection.cursor() as cursor:
