@@ -103,6 +103,7 @@ def sync_id_column(id_column):
         with connection.cursor() as cursor:  # Some NHM datasets have purl IDs in othercatalognumbers
             cursor.execute("SELECT COUNT(*) FROM information_schema.columns WHERE table_name='temp' and column_name='othercatalognumbers';")
             if cursor.fetchone()[0] == 1:
+                cursor.execute("UPDATE temp SET othercatalognumbers = REPLACE(othercatalognumbers, 'http://purl.org/nhmuio/id/', '')")
                 # Sometimes there are multiple UUIDs in one column, when one specimen is spread over several sheets. This is a mistake, but nothing can be done now. Just make the first one work.
                 cursor.execute("UPDATE temp SET othercatalognumbers = REGEXP_REPLACE(othercatalognumbers, '^([0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12}).+', '\\1')")
                 # Sometimes there are duplicate uuids in othercatalognumbers for multiple records when we have 2 or more specimens on 1 sheet. This is a mistake, but cannot be fixed now. Do not resolve any of these.
@@ -110,7 +111,6 @@ def sync_id_column(id_column):
                 cursor.execute("UPDATE temp SET othercatalognumbers = '' WHERE othercatalognumbers IN (" + duplicates + ")")
                 # Finally, put othercatalognumbers in the id column if they look like they are valid
                 cursor.execute("UPDATE temp SET id = othercatalognumbers WHERE othercatalognumbers ~ '[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12}'")
-                cursor.execute("UPDATE temp SET id = REPLACE(othercatalognumbers, 'http://purl.org/nhmuio/id/', '') WHERE othercatalognumbers LIKE 'http://purl.org/nhmuio/id/%'")
     except p.errors.UndefinedColumn:
         logger = logging.getLogger(__name__)
         logger.error('Undefined column')
