@@ -21,6 +21,12 @@ class MigrationProcessingTest(TestCase):
         migration_processing.import_dwca('my_dataset_id', '/code/populator/tests/mock_data/dwc_archive_bad_rows.zip')
         self.assertEqual(ResolvableObjectMigration.objects.count(), 11)
 
+    def test_blank_fields_not_imported(self):
+        migration_processing.import_dwca('my_dataset_id', '/code/populator/tests/mock_data/dwc_archive_bad_rows.zip')
+        # The DwCA has a column 'sex' with no data, check that we don't import {"sex": ''} into the jsonb field
+        first = ResolvableObjectMigration.objects.all().first()
+        self.assertTrue('sex' not in first.data.keys())
+
     def test_get_core_id(self):
         self.assertEqual('measurementid', migration_processing.get_core_id('measurementorfact'))
         self.assertEqual('occurrenceid', migration_processing.get_core_id('occurrence'))
@@ -119,7 +125,7 @@ class MigrationProcessingTest(TestCase):
             self.assertTrue(migration_processing.sync_id_column('occurrenceid'))
             cursor.execute('SELECT * FROM temp')
             columns = [col[0] for col in cursor.description]
-            self.assertEqual(dict(zip(columns, cursor.fetchone())), {'id': 'urn:uuid:1', 'occurrenceid': 'urn:uuid:1', 'othercatalognumbers': 'abc'})
+
 
     def test_purlfriendly_id_with_urn_prefix(self):
         with connection.cursor() as cursor:
@@ -193,6 +199,16 @@ class MigrationProcessingTest(TestCase):
             cursor.execute("INSERT INTO temp VALUES ('b', 'another')")
         migration_processing.insert_json_into_migration_table('dataset_id', 'occurrence')
         expected = [{'id': 'a', 'data': {'id': 'a', 'scientificname': 'eudyptes'}, 'type': 'occurrence', 'dataset_id': 'dataset_id'},
+                    {'id': 'b', 'data': {'id': 'b', 'scientificname': 'another'}, 'type': 'occurrence', 'dataset_id': 'dataset_id'}]
+        self.assertEqual([model_to_dict(x) for x in ResolvableObjectMigration.objects.all()], expected)
+
+    def test_insert_json_into_migration_table_nulls(self):
+        with connection.cursor() as cursor:
+            cursor.execute('CREATE TABLE temp (id text, scientificname text)')
+            cursor.execute("INSERT INTO temp VALUES ('a', NULL)")
+            cursor.execute("INSERT INTO temp VALUES ('b', 'another')")
+        migration_processing.insert_json_into_migration_table('dataset_id', 'occurrence')
+        expected = [{'id': 'a', 'data': {'id': 'a'}, 'type': 'occurrence', 'dataset_id': 'dataset_id'},
                     {'id': 'b', 'data': {'id': 'b', 'scientificname': 'another'}, 'type': 'occurrence', 'dataset_id': 'dataset_id'}]
         self.assertEqual([model_to_dict(x) for x in ResolvableObjectMigration.objects.all()], expected)
 

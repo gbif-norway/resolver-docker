@@ -6,6 +6,7 @@ from website.models import ResolvableObject, Dataset
 from django.forms.models import model_to_dict
 from datetime import date
 from website.models import Dataset
+from django.db import connection
 
 
 class SyncDatasetTest(TestCase):
@@ -46,14 +47,27 @@ class CacheDataTest(TransactionTestCase):
     def setUp(self):
         self.dataset = Dataset.objects.create(id='dataset_id', data={'title': 'My dataset'})
 
-    def create_ro(self, data={}):  # The old data
-        ResolvableObject.objects.create(id='a', type='occurrence', dataset=self.dataset, data=data)
+    def create_ro(self, data={}, id_='a'):  # The old data
+        ResolvableObject.objects.create(id=id_, type='occurrence', dataset=self.dataset, data=data)
 
-    def create_ro_migration(self, data={}, id='a'):  # The newly imported data
-        ResolvableObjectMigration.objects.create(id=id, type='occurrence', dataset_id=self.dataset.id, data=data)
+    def create_ro_migration(self, data={}, id_='a'):  # The newly imported data
+        ResolvableObjectMigration.objects.create(id=id_, type='occurrence', dataset_id=self.dataset.id, data=data)
 
     def assert_equal(self, iterable1, iterable2):  # Necessary as assertEqual does not compare json fields
         self.assertEqual([model_to_dict(x) for x in iterable1], [model_to_dict(x) for x in iterable2])
+
+    def test_create_temp_updated_table(self):
+        self.create_ro({'scientificname': 'same', 'location': 'old original'})
+        self.create_ro_migration({'scientificname': 'same', 'location': 'new updated'})
+        self.create_ro({'scientificname': 'same', 'location': 'same'}, id_='b')
+        self.create_ro_migration({'scientificname': 'same', 'location': 'same'}, id_='b')
+        cache_data.create_temp_updated_table()
+        cache_data.populate_temp_updated_table(2, 0)
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT * FROM temp_updated')
+            results = cursor.fetchall()
+        expected = [('a', '{"location": "old original"}', '{"location": "new updated", "scientificname": "same"}')]
+        self.assertEqual(results, expected)
 
     def test_records_old_version_of_modified_data_items_in_history_table(self):
         self.create_ro({'scientificname': 'same', 'location': 'old original'})
@@ -61,6 +75,16 @@ class CacheDataTest(TransactionTestCase):
         cache_data.merge_in_new_data()
         expected = History(id=1, resolvable_object_id='a', changed_data={'location': 'old original'}, changed_date=date.today())
         self.assert_equal(History.objects.all(), [expected])
+
+    def test_records_multiple_items_in_history_table(self):
+        self.create_ro({'scientificname': 'same', 'location': 'old original'})
+        self.create_ro_migration({'scientificname': 'same', 'location': 'new updated'})
+        self.create_ro({'scientificname': 'same', 'location': 'old original'}, id_='b')
+        self.create_ro_migration({'scientificname': 'same', 'location': 'new updated'}, id_='b')
+        cache_data.merge_in_new_data()
+        expected_a = History(id=1, resolvable_object_id='a', changed_data={'location': 'old original'}, changed_date=date.today())
+        expected_b = History(id=2, resolvable_object_id='b', changed_data={'location': 'old original'}, changed_date=date.today())
+        self.assert_equal(History.objects.all(), [expected_a, expected_b])
 
     def test_records_copy_of_deleted_data_items_in_history_table(self):
         self.create_ro({'scientificname': 'same', 'incorrect_data': 'to be deleted'})

@@ -75,7 +75,7 @@ def get_columns(firstline):
 
 def import_file(f):
     with connection.cursor() as cursor:
-        cursor.copy_expert(sql="COPY temp FROM stdin DELIMITER AS '\t'", file=f)
+        cursor.copy_from(file=f, table='temp', null="")
 
 
 def create_temp_table(columns):
@@ -171,13 +171,14 @@ def get_temp_count():
         return cursor.fetchone()[0]
 
 
-def insert_json_into_migration_table(dataset_id, core_type):
-    step = 300000
+def insert_json_into_migration_table(dataset_id, core_type, step=300000):
     count = 0
-    for i in range(0, get_temp_count(), step):
+    temp_count = get_temp_count()
+    _max = step if temp_count <= step else temp_count + step
+    for i in range(0, _max, step):
         logger = logging.getLogger(__name__)
         logger.info('Migration loop: {}'.format(i))
-        make_json_sql = """SELECT temp.id, row_to_json(temp), '{0}', '{1}'
+        make_json_sql = """SELECT temp.id, json_strip_nulls(row_to_json(temp)), '{0}', '{1}'
                            FROM temp ORDER BY temp.id LIMIT {2} OFFSET {3};""".format(dataset_id, core_type, step, i)
         insert_sql = 'INSERT INTO populator_resolvableobjectmigration(id, data, dataset_id, type) ' + make_json_sql
         with connection.cursor() as cursor:

@@ -7,7 +7,7 @@ from rest_framework.reverse import reverse
 
 class ResolverViewTests(APITestCase):
     def setUp(self):
-        self.dataset = Dataset.objects.create(id='dataset_id', data={'title': 'My dataset'})
+        self.dataset = Dataset.objects.create(id='dataset_id', data={'label': 'My dataset', 'key': 'a', 'type': 'event'})
 
     def test_displays_index(self):
         Statistic.objects.set_total_count()
@@ -114,12 +114,28 @@ class ResolverViewTests(APITestCase):
 
     def test_renders_occurrence_json_ld(self):
         response_string = self._simple_request_occurrence('application/ld+json')
-        expected_response = {'owl:sameas': 'urn:uuid:5c0884ce-608c-4716-ba0e-cb389dca5580', '@id': 'http://purl.org/gbifnorway/id/urn:uuid:5c0884ce-608c-4716-ba0e-cb389dca5580', 'dwc:basisofrecord': 'preservedspecimen', '@context': {'dc': 'http://purl.org/dc/elements/1.1/', 'dwc': 'http://rs.tdwg.org/dwc/terms/', 'owl': 'https://www.w3.org/tr/owl-ref/'}}
+        expected_response = {'owl:sameas': 'urn:uuid:5c0884ce-608c-4716-ba0e-cb389dca5580',
+                             '@id': 'http://purl.org/gbifnorway/id/urn:uuid:5c0884ce-608c-4716-ba0e-cb389dca5580',
+                             'dwc:basisofrecord': 'preservedspecimen',
+                             'core-type': '',
+                             'dataset': {'key': 'a', 'label': 'my dataset', 'type': 'event'},
+                             '@context': {'dc': 'http://purl.org/dc/elements/1.1/',
+                                          'dwc': 'http://rs.tdwg.org/dwc/terms/',
+                                          'owl': 'https://www.w3.org/tr/owl-ref/'}}
         self.assertEqual(expected_response, json.loads(response_string))
 
     def test_renders_dataset_json_ld(self):
         response_string = self._simple_request_dataset('application/ld+json')
-        expected_response = {'dc:type': 'dataset', 'owl:sameas': 'https://doi.org/10.12345/abcdef', 'rdfs:label': 'my dataset name' , '@id': 'http://purl.org/gbifnorway/id/urn:uuid:5c0884ce-608c-4716-ba0e-cb389dca5580', '@context': {'dc': 'http://purl.org/dc/elements/1.1/', 'dwc': 'http://rs.tdwg.org/dwc/terms/', 'owl': 'https://www.w3.org/tr/owl-ref/', 'rdfs': 'https://www.w3.org/tr/rdf-schema/'}}
+        expected_response = {'dc:type': 'dataset',
+                             'owl:sameas': 'https://doi.org/10.12345/abcdef',
+                             'rdfs:label': 'my dataset name' ,
+                             '@id': 'http://purl.org/gbifnorway/id/urn:uuid:5c0884ce-608c-4716-ba0e-cb389dca5580',
+                             'core-type': '',
+                             'dataset': {'key': 'a', 'label': 'my dataset', 'type': 'event'},
+                             '@context': {'dc': 'http://purl.org/dc/elements/1.1/',
+                                          'dwc': 'http://rs.tdwg.org/dwc/terms/',
+                                          'owl': 'https://www.w3.org/tr/owl-ref/',
+                                          'rdfs': 'https://www.w3.org/tr/rdf-schema/'}}
         self.assertEqual(expected_response, json.loads(response_string))
 
     def test_renders_occurrence_rdf(self):

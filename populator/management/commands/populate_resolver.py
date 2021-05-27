@@ -25,8 +25,9 @@ class Command(BaseCommand):
         skip = False
 
         # Set up for import
-        create_duplicates_file()
-        reset_import_table()
+        if not skip:
+            create_duplicates_file()
+            reset_import_table()
         dataset_ids = []
         overall_start = datetime.now()
 
