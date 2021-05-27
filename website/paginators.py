@@ -1,5 +1,4 @@
 from rest_framework.pagination import LimitOffsetPagination
-from django.db import connection
 from populator.models import Statistic
 
 
