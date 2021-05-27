@@ -1,15 +1,26 @@
 from rest_framework import serializers
-from .models import ResolvableObject
+from .models import ResolvableObject, Dataset
 
-class ResolvableObjectSerializer(serializers.HyperlinkedModelSerializer):
+
+class DatasetSerializer(serializers.HyperlinkedModelSerializer):
+    class Meta:
+        model = Dataset
+        fields = ('data', )
+
+
+class ResolvableObjectSerializer(serializers.ModelSerializer):
+    dataset = DatasetSerializer()
+
     class Meta:
         model = ResolvableObject
-        fields = ('data',)
+        fields = ('data', 'type', 'dataset')
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)
-        ret = ret['data']
-        prefixed_object = {'dwc:%s' % key: value for key, value in ret.items()}
+        prefixed_object = {'dwc:%s' % key: value for key, value in ret['data'].items()}
+        prefixed_object['core-type'] = ret['type']
+        dataset = ret['dataset']['data']
+        prefixed_object['dataset'] = {'label': dataset['label'], 'key': dataset['key'], 'type': dataset['type']}
         prefixed_object['@context'] = {'dc': 'http://purl.org/dc/elements/1.1/', 'dwc': 'http://rs.tdwg.org/dwc/terms/', 'owl': 'https://www.w3.org/tr/owl-ref/'}
 
         if 'dwc:id' in prefixed_object:
