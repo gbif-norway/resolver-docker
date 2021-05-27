@@ -1,15 +1,14 @@
-from .models import ResolvableObject
+from .models import ResolvableObject, Dataset
 from rest_framework import viewsets, renderers
-from .serializers import ResolvableObjectSerializer
+from .serializers import ResolvableObjectSerializer, DatasetSerializer
 from .renderers import RDFRenderer, JSONLDRenderer
 from .paginators import CustomPagination
-from rest_framework.pagination import LimitOffsetPagination
 
 
 class ResolvableObjectViewSet(viewsets.ReadOnlyModelViewSet):
     """
     GBIF Norway's resolver provides data published to gbif.org by Norwegian publishers. Query by appending e.g.
-    `?type=dataset` to get a list of all datasets, or `?scientificname=Galium+odoratum` to filter on scientific name.
+    `?scientificname=Galium+odoratum` to filter on scientific name.
     """
     renderer_classes = (renderers.JSONRenderer, renderers.BrowsableAPIRenderer, JSONLDRenderer, RDFRenderer)
     queryset = ResolvableObject.objects.all()
@@ -17,6 +16,21 @@ class ResolvableObjectViewSet(viewsets.ReadOnlyModelViewSet):
     pagination_class = CustomPagination
 
     def get_queryset(self):
-        query_params = {key: item for key, item in self.request.query_params.items() if key not in ['offset', 'limit', 'format']}
-        return ResolvableObject.objects.filter(data__contains=query_params)
+        query_params = self.request.query_params
+        data_args = {key: item for key, item in query_params.items() if key not in ['offset', 'limit', 'format', 'type']}
+        args = {'data__contains': data_args}
+        if 'type' in query_params:
+            args['type'] = query_params['type']
+        return ResolvableObject.objects.filter(**args)
+
+
+class DatasetViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    GBIF Norway's resolver provides data published to gbif.org by Norwegian publishers. Query by appending e.g.
+    `?scientificname=Galium+odoratum` to filter on scientific name.
+    """
+    renderer_classes = (renderers.JSONRenderer, renderers.BrowsableAPIRenderer, JSONLDRenderer, RDFRenderer)
+    queryset = Dataset.objects.all()
+    serializer_class = DatasetSerializer
+    pagination_class = CustomPagination
 
