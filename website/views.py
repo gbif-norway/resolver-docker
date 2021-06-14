@@ -1,5 +1,5 @@
 from .models import ResolvableObject, Dataset
-from rest_framework import viewsets, renderers
+from rest_framework import viewsets, renderers, pagination
 from .serializers import ResolvableObjectSerializer, DatasetSerializer
 from .renderers import RDFRenderer, JSONLDRenderer
 from .paginators import CustomPagination
@@ -32,5 +32,5 @@ class DatasetViewSet(viewsets.ReadOnlyModelViewSet):
     renderer_classes = (renderers.JSONRenderer, renderers.BrowsableAPIRenderer, JSONLDRenderer, RDFRenderer)
     queryset = Dataset.objects.all()
     serializer_class = DatasetSerializer
-    pagination_class = CustomPagination
+    pagination_class = pagination.LimitOffsetPagination
 

@@ -23,3 +23,4 @@ class ResolvableObject(models.Model):
             GinIndex(fields=['data'])
         ]
         # CREATE INDEX idxginscientificname ON website_resolvableobject USING GIN ((data -> 'scientificname'));
+        # CREATE INDEX ro_data_gin_idx ON website_resolvableobject USING GIN (data jsonb_path_ops);
