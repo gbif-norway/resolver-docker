@@ -20,10 +20,10 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # See https://docs.djangoproject.com/en/2.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = '_fwo$(&guk5^9+wk+scd*b&3nxe=fw=c9u1eci9v9fq17xgfu#'
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'dev-secret-key')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DJANGO_DEBUG', True)
 
 #ALLOWED_HOSTS = [os.environ.get('VIRTUAL_HOST', 'resolver.local')]
 ALLOWED_HOSTS = ['*']
@@ -147,7 +147,7 @@ REST_FRAMEWORK = {
 
 INTERNAL_IPS = ['127.0.0.1',]
 def show_toolbar(request):
-    return False
+    return DEBUG
 DEBUG_TOOLBAR_CONFIG = { "SHOW_TOOLBAR_CALLBACK" : show_toolbar, }
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
