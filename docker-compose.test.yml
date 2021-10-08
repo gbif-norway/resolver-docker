@@ -4,10 +4,7 @@ services:
   web:
     image: resolver-populate
     build: .
-    command: python manage.py runserver 0.0.0.0:80
-    # bash -c "python manage.py migrate && python manage.py populate_resolver"
-    expose: 
-      - 80
+    command: python manage.py test
     env_file:
       - ./test.env
     volumes:
