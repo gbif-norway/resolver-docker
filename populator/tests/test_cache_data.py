@@ -10,6 +10,11 @@ from django.db import connection
 
 
 class SyncDatasetTest(TestCase):
+    def test_no_migrated_datasets(self):
+        Dataset.objects.create(id='a6c6cead-b5ce-4a4e-8cf5-1542ba708dec', data={})
+        cache_data.sync_datasets([])
+        self.assertEqual(set(ResolvableObject.objects.all().values_list('deleted_date', flat=True)), set())
+
     def test_sets_deleted_date_for_datasets_not_in_new_migration(self):
         ids = ['a6c6cead-b5ce-4a4e-8cf5-1542ba708dec', 'd6c6cead-b5ce-4a4e-8cf5-1542ba708ded', 'f6c6cead-b5ce-4a4e-8cf5-1542ba708def']
         Dataset.objects.create(id=ids[0], data={})

@@ -13,6 +13,7 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('--reset', action='store_true', help='Resets (clears cache) from GBIF')
+        parser.add_argument('--skip', action='store_true', help='Skips ingestion and goes straight to merging - use if the script failed at merging stage')
 
     def handle(self, *args, **options):
         dataset_list = _gbif_api.get_dataset_list()
@@ -22,10 +23,9 @@ class Command(BaseCommand):
                'crop wild relatives, global': '07044577-bd82-4089-9f3a-f4a9d2170b2e',
                'artsobs': 'b124e1e0-4755-430f-9eab-894f25a9b59c',
                }
-        skip = False
 
         # Set up for import
-        if not skip:
+        if not options['skip']:
             create_duplicates_file()
             reset_import_table()
         dataset_ids = []
@@ -33,7 +33,7 @@ class Command(BaseCommand):
 
         # Iterate over GBIF datasets
         for dataset in dataset_list:
-            if skip or dataset['key'] in big.values():
+            if options['skip'] or dataset['key'] in big.values():
                 self.logger.info('skip')
                 continue
             start = datetime.now()
@@ -57,9 +57,12 @@ class Command(BaseCommand):
             log_time(start, 'fin inserting dataset {}'.format(dataset['key']))
 
         log_time(overall_start, 'finished all datasets, merging in starts next')
-        start = datetime.now()
-        _cache_data.sync_datasets(dataset_ids)
-        log_time(start, 'caching complete')
+
+        if not options['skip']:
+            start = datetime.now()
+            _cache_data.sync_datasets(dataset_ids)
+            log_time(start, 'caching complete')
+
         start = datetime.now()
         _cache_data.merge_in_new_data(False)  # options['reset']
         log_time(start, 'merging complete')

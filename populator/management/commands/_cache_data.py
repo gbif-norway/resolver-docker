@@ -11,7 +11,7 @@ def sync_datasets(migration_dataset_ids):
     ResolvableObject.objects.exclude(dataset__id__in=migration_dataset_ids).update(deleted_date=date.today())
 
 
-def merge_in_new_data(reset=False, step=10000):
+def merge_in_new_data(reset=False, step=5000):
     logger = logging.getLogger(__name__)
     # if reset:
     #     reset()
@@ -23,48 +23,48 @@ def merge_in_new_data(reset=False, step=10000):
     log_time(start, 'count complete')
 
     _max = step if count <= step else count + step
-    #try:
-    for i in range(0, _max, step):
-        start = datetime.now()
-        log_time(start, 'starting on offset {} and step {}'.format(i, step))
-        create_temp_updated_table()
-        log_time(start, 'created temp updated table')
+    try:
+        for i in range(0, _max, step):
+            start = datetime.now()
+            log_time(start, 'starting on offset {} and step {}'.format(i, step))
+            create_temp_updated_table()
+            log_time(start, 'created temp updated table')
+
+            start = datetime.now()
+            populate_temp_updated_table(offset=i, limit=step)
+            log_time(start, 'populated temp updated table')
+
+            start = datetime.now()
+            insert_history()
+            log_time(start, 'inserted history')
+
+            start = datetime.now()
+            update_website_resolvableobject()
+            log_time(start, 'updated pre existing records')
 
         start = datetime.now()
-        populate_temp_updated_table(offset=i, limit=step)
-        log_time(start, 'populated temp updated table')
+        log_time(start, 'adding new records starting now')
+        with connection.cursor() as cursor:
+            cursor.execute(get_add_new_records_sql())
 
+        log_time(start, 'added all new records')
         start = datetime.now()
-        insert_history()
-        log_time(start, 'inserted history')
 
-        start = datetime.now()
-        update_website_resolvableobject()
-        log_time(start, 'updated pre existing records')
-
-    start = datetime.now()
-    log_time(start, 'adding new records starting now')
-    with connection.cursor() as cursor:
-        cursor.execute(get_add_new_records_sql())
-
-    log_time(start, 'added all new records')
-    start = datetime.now()
-
-    sql = """
-        UPDATE website_resolvableobject
-            SET deleted_date = CURRENT_DATE
-        WHERE id IN (
-            SELECT old.id
-            FROM website_resolvableobject AS old
-            LEFT JOIN populator_resolvableobjectmigration AS new ON new.id = old.id
-            WHERE new.id IS NULL AND old.deleted_date IS NULL)
-        """
-    with connection.cursor() as cursor:
-        cursor.execute(sql)
-    log_time(start, 'added deleted dates')
-    #connection.close()
-    #except:
-    #    import pdb; pdb.set_trace()
+        sql = """
+            UPDATE website_resolvableobject
+                SET deleted_date = CURRENT_DATE
+            WHERE id IN (
+                SELECT old.id
+                FROM website_resolvableobject AS old
+                LEFT JOIN populator_resolvableobjectmigration AS new ON new.id = old.id
+                WHERE new.id IS NULL AND old.deleted_date IS NULL)
+            """
+        with connection.cursor() as cursor:
+            cursor.execute(sql)
+        log_time(start, 'added deleted dates')
+        #connection.close()
+    except:
+        import pdb; pdb.set_trace()
 
 
 def reset():
