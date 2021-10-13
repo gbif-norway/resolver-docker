@@ -11,6 +11,7 @@ class DatasetSerializer(serializers.HyperlinkedModelSerializer):
         ret = super().to_representation(instance)
         return ret['data']
 
+
 class ResolvableObjectSerializer(serializers.ModelSerializer):
     dataset = DatasetSerializer()
 

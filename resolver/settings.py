@@ -152,7 +152,7 @@ DEBUG_TOOLBAR_CONFIG = { "SHOW_TOOLBAR_CALLBACK" : show_toolbar, }
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 CORS_ORIGIN_ALLOW_ALL = True
-CORS_ORIGIN_REGEX_WHITELIST = ('http://.*.local.*',)
+CORS_ORIGIN_REGEX_WHITELIST = ('http://.*.local.*', '.*gbif.no.*')
 
 LOGGING = {
     'version': 1,
