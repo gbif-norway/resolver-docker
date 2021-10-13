@@ -41,7 +41,7 @@ def get_dwca_and_store_as_tmp_zip(url):
             for chunk in response.iter_content(5000):
                 fd.write(chunk)
         return True
-    except requests.exceptions.HTTPError as e:
+    except (requests.exceptions.SSLError, requests.exceptions.HTTPError) as e:
         _log_error(e)
         return False
 
