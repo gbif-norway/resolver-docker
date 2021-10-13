@@ -64,7 +64,7 @@ class Command(BaseCommand):
 
         if not options['skip']:
             start = datetime.now()
-            _cache_data.sync_datasets(dataset_ids)
+            #_cache_data.sync_datasets(dataset_ids)
             log_time(start, 'caching complete')
 
         start = datetime.now()
