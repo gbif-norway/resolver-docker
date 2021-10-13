@@ -42,7 +42,7 @@ def get_dwca_and_store_as_tmp_zip(url):
                 fd.write(chunk)
         return True
     except (requests.exceptions.SSLError, requests.exceptions.HTTPError) as e:
-        _log_error(e)
+        logging.warning(f'SSL or HTTP error {e}')
         return False
 
 
