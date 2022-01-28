@@ -1,8 +1,14 @@
 from .models import ResolvableObject, Dataset
+from populator.models import History
 from rest_framework import viewsets, renderers, pagination
 from .serializers import ResolvableObjectSerializer, DatasetSerializer
 from .renderers import RDFRenderer, JSONLDRenderer
 from .paginators import CustomPagination
+
+
+class HistoryViewSet(viewsets.ReadOnlyModelViewSet):
+    renderer_classes = (renderers.JSONRenderer, renderers.BrowsableAPIRenderer, JSONLDRenderer, RDFRenderer)
+    queryset = History.objects.all()
 
 
 class ResolvableObjectViewSet(viewsets.ReadOnlyModelViewSet):
@@ -26,8 +32,7 @@ class ResolvableObjectViewSet(viewsets.ReadOnlyModelViewSet):
 
 class DatasetViewSet(viewsets.ReadOnlyModelViewSet):
     """
-    GBIF Norway's resolver provides data published to gbif.org by Norwegian publishers. Query by appending e.g.
-    `?scientificname=Galium+odoratum` to filter on scientific name.
+    Dataset list
     """
     renderer_classes = (renderers.JSONRenderer, renderers.BrowsableAPIRenderer, JSONLDRenderer, RDFRenderer)
     queryset = Dataset.objects.all()

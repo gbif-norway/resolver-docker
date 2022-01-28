@@ -1,5 +1,12 @@
 from rest_framework import serializers
 from .models import ResolvableObject, Dataset
+from populator.models import History
+
+
+class HistorySerializer(serializers.HyperlinkedModelSerializer):
+    class Meta:
+        model = History
+        fields = ('resolvable_object', 'changed_data', 'changed_date')
 
 
 class DatasetSerializer(serializers.HyperlinkedModelSerializer):
