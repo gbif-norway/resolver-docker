@@ -12,12 +12,4 @@ class CustomPagination(LimitOffsetPagination):
             return Statistic.objects.get_total_count()
         elif 'WHERE "website_resolvableobject"."data" @> {"basisofrecord": "Preservedspecimen"}' in str(queryset.query):
             return Statistic.objects.get_preserved_specimen_count()
-        return 500
-        #return queryset.count()
-
-    def get_paginated_response(self, data):
-        return Response(OrderedDict([
-            ('next', self.get_next_link()),
-            ('previous', self.get_previous_link()),
-            ('results', data)
-        ]))
+        return queryset.count()
