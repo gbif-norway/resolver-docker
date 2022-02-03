@@ -2,13 +2,13 @@ from .models import ResolvableObject, Dataset
 from rest_framework import viewsets, renderers, pagination
 from .serializers import ResolvableObjectSerializer, DatasetSerializer
 from .renderers import RDFRenderer, JSONLDRenderer
-from .paginators import CustomPagination
+from .paginators import CustomPagination, CustomCountPagination
 
 
 class ResolvableObjectViewSet(viewsets.ReadOnlyModelViewSet):
     """
     GBIF Norway's resolver provides data published to gbif.org by Norwegian publishers. Query by appending e.g.
-    `?scientificname=Galium+odoratum` to filter on scientific name.
+    `?scientificname=Galium+odoratum` to filter on scientific name. Add '_add_counts=true' to return the result count (not performant).
     """
     renderer_classes = (renderers.JSONRenderer, renderers.BrowsableAPIRenderer, JSONLDRenderer, RDFRenderer)
     queryset = ResolvableObject.objects.all()
@@ -17,20 +17,20 @@ class ResolvableObjectViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         query_params = self.request.query_params
-        data_args = {key: item for key, item in query_params.items() if key not in ['offset', 'limit', 'format', 'type']}
+        data_args = {key: item for key, item in query_params.items() if key not in ['offset', 'limit', 'format', 'type', '_add_counts']}
         args = {'data__contains': data_args}
         if 'type' in query_params:
             args['type'] = query_params['type']
+        if '_add_counts' in query_params and query_params['_add_counts'] == 'true':
+            self.pagination_class = CustomCountPagination
         return ResolvableObject.objects.filter(**args)
 
 
 class DatasetViewSet(viewsets.ReadOnlyModelViewSet):
     """
-    GBIF Norway's resolver provides data published to gbif.org by Norwegian publishers. Query by appending e.g.
-    `?scientificname=Galium+odoratum` to filter on scientific name.
+    Datasets endpoint
     """
     renderer_classes = (renderers.JSONRenderer, renderers.BrowsableAPIRenderer, JSONLDRenderer, RDFRenderer)
     queryset = Dataset.objects.all()
     serializer_class = DatasetSerializer
     pagination_class = pagination.LimitOffsetPagination
-
