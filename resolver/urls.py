@@ -20,6 +20,7 @@ import debug_toolbar
 
 router = routers.SimpleRouter()
 router.register(r'datasets', views.DatasetViewSet)
+router.register(r'history', views.HistoryViewSet)
 router.register(r'', views.ResolvableObjectViewSet)
 
 urlpatterns = [

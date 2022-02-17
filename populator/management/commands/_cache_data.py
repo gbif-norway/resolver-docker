@@ -6,9 +6,14 @@ from datetime import date, datetime
 
 
 def sync_datasets(migration_dataset_ids):
-    #  TODO what about datasets + records which get deleted then added again?
-    Dataset.objects.exclude(id__in=migration_dataset_ids).update(deleted_date=date.today())
-    ResolvableObject.objects.exclude(dataset__id__in=migration_dataset_ids).update(deleted_date=date.today())
+    start = datetime.now()
+    log_time(start, 'syncing datasets')
+    deleted_datasets = Dataset.objects.exclude(id__in=migration_dataset_ids)
+    log_time(start, ', '.join([x.id for x in deleted_datasets]))
+    deleted_datasets.update(deleted_date=date.today())
+    log_time(start, 'syncing datasets')
+
+    ResolvableObject.objects.filter(dataset__id__in=[x.id for x in deleted_datasets]).update(deleted_date=date.today())
 
 
 def merge_in_new_data(reset=False, step=5000):

@@ -27,6 +27,15 @@ class GbifApiTest(TestCase):
             self.assertTrue('WARNING:root:GET request code: 500. URL: https://api.gbif.org/v1/dataset/search?limit=5000&publishingCountry=NO' in cm.output[0])
 
     @responses.activate
+    def test_returns_false_when_get_dwca_fails(self):
+        url = 'https://ipt.gbif.no/archive.do?r=uio_nhm_forest_lines&v=1.9'
+        responses.add(responses.GET, url, json={}, status=500)
+        with self.assertLogs() as cm:
+            stored = gbif_api.get_dwca_and_store_as_tmp_zip(url)
+            #self.assertTrue(f'WARNING:root:GET request code: 500. URL: {url}' in cm.output[0])
+            self.assertFalse(stored)
+
+    @responses.activate
     def test_get_dataset_detailed_info(self):
         key = 'd34ed8a4-d3cb-473c-a11c-79c5fec4d649'
         url = self.GBIF_API_DATASET_URL.format(key)

@@ -51,8 +51,12 @@ class Command(BaseCommand):
                 continue
 
             self.logger.info(endpoint['url'])
-            _gbif_api.get_dwca_and_store_as_tmp_zip(endpoint['url'])
-            _migration_processing.import_dwca(dataset['key'])
+
+            stored = _gbif_api.get_dwca_and_store_as_tmp_zip(endpoint['url'])
+            if stored:
+                _migration_processing.import_dwca(dataset['key'])
+            else:
+                self.logger.info(f"Could not download dataset {dataset['key']}")
             dataset_ids.append(dataset['key'])
             log_time(start, 'fin inserting dataset {}'.format(dataset['key']))
 
@@ -60,7 +64,7 @@ class Command(BaseCommand):
 
         if not options['skip']:
             start = datetime.now()
-            _cache_data.sync_datasets(dataset_ids)
+            #_cache_data.sync_datasets(dataset_ids)
             log_time(start, 'caching complete')
 
         start = datetime.now()

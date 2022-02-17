@@ -34,11 +34,16 @@ def get_dwc_endpoint(endpoints):
 
 
 def get_dwca_and_store_as_tmp_zip(url):
-    response = requests.get(url, stream=True)
-    response.raise_for_status()
-    with open('/tmp/tmp.zip', 'wb') as fd:
-        for chunk in response.iter_content(5000):
-            fd.write(chunk)
+    try:
+        response = requests.get(url, stream=True)
+        response.raise_for_status()
+        with open('/tmp/tmp.zip', 'wb') as fd:
+            for chunk in response.iter_content(5000):
+                fd.write(chunk)
+        return True
+    except (requests.exceptions.SSLError, requests.exceptions.HTTPError) as e:
+        logging.warning(f'SSL or HTTP error {e}')
+        return False
 
 
 def _log_error(e):
