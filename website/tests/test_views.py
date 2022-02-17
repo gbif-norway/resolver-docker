@@ -51,10 +51,10 @@ class ResolverViewTests(APITestCase):
         self.assertEqual(results['results'][0]['dwc:scientificname'], 'eudyptes')
         self.assertEqual(results['results'][0]['owl:sameas'], 'c')
 
-    def _test_correct_count_with_filtering_and_pagination(self):
+    def test_correct_count_with_filtering_and_pagination(self):
         for item in [('a', 'Galium',), ('b', 'Eudyptes'), ('c', 'Eudyptes'), ('d', 'Galium'), ('e', 'Eudyptes')]:
             ResolvableObject.objects.create(id=item[0], data={'id': item[0], 'scientificname': item[1]}, dataset=self.dataset)
-        response = self.client.get(reverse('resolvableobject-list') + '?offset=1&limit=1&scientificname=Eudyptes', HTTP_ACCEPT='application/ld+json')
+        response = self.client.get(reverse('resolvableobject-list') + '?offset=1&limit=1&scientificname=Eudyptes&_add_counts=true', HTTP_ACCEPT='application/ld+json')
         results = json.loads(response.content.decode('utf-8').lower())
         self.assertEqual(results['count'], 3)
 
@@ -84,7 +84,7 @@ class ResolverViewTests(APITestCase):
         self.assertEqual(results['results'][0]['dwc:scientificname'], 'eudyptes moseleyi')
         self.assertEqual(results['results'][1]['dwc:scientificname'], 'eudyptes moseleyi')
 
-    def _test_calculates_correct_counts_with_filter(self):
+    def test_calculates_correct_counts_with_filter(self):
         id = 'urn:uuid:5c0884ce-608c-4716-ba0e-cb389dca5580'
         ResolvableObject.objects.create(id=id, dataset=self.dataset, data={'id': id, 'basisOfRecord': 'preservedspecimen', 'scientificname': 'Galium odoratum'})
         id = 'urn:uuid:6c0884ce-608c-4716-ba0e-cb389dca5581'
@@ -93,12 +93,12 @@ class ResolverViewTests(APITestCase):
         ResolvableObject.objects.create(id=id, dataset=self.dataset, data={'id': id, 'basisOfRecord': 'preservedspecimen', 'scientificname': 'Eudyptes moseleyi'})
 
         url = reverse('resolvableobject-list')
-        response = self.client.get(url + '?scientificname=Eudyptes%20moseleyi', HTTP_ACCEPT='application/ld+json')
+        response = self.client.get(url + '?scientificname=Eudyptes%20moseleyi&_add_counts=true', HTTP_ACCEPT='application/ld+json')
         results = json.loads(response.content.decode('utf-8').lower())
         self.assertEqual(len(results['results']), 2)
         self.assertEqual(results['count'], 2)
 
-    def _test_calculates_correct_counts_without_filter(self): # FAILS
+    def test_calculates_correct_counts_without_filter(self): # FAILS
         id = 'urn:uuid:5c0884ce-608c-4716-ba0e-cb389dca5580'
         ResolvableObject.objects.create(id=id, dataset=self.dataset, data={'id': id, 'basisOfRecord': 'preservedspecimen', 'scientificname': 'Galium odoratum'})
         id = 'urn:uuid:6c0884ce-608c-4716-ba0e-cb389dca5581'
@@ -107,7 +107,7 @@ class ResolverViewTests(APITestCase):
         ResolvableObject.objects.create(id=id, dataset=self.dataset, data={'id': id, 'basisOfRecord': 'preservedspecimen', 'scientificname': 'Eudyptes moseleyi'})
 
         url = reverse('resolvableobject-list')
-        response = self.client.get('/', HTTP_ACCEPT='application/ld+json')
+        response = self.client.get(url + '?_add_counts=true', HTTP_ACCEPT='application/ld+json')
         results = json.loads(response.content.decode('utf-8').lower())
         self.assertEqual(len(results['results']), 3)
         self.assertEqual(results['count'], 3) # Note: this fails at the moment until I can figure out a better way to count

@@ -17,7 +17,7 @@ def get_dataset_id(zip_file_location):
 
 def import_dwca(dataset_id, zip_file_location='/tmp/tmp.zip'):
     logger = logging.getLogger(__name__)
-    supported_cores = ['occurrence.txt', 'event.txt', 'taxon.txt']
+    supported_cores = ['occurrence.txt', 'event.txt', 'taxon.txt', 'measurementorfact.txt']
     count = 0
     try:
         with ZipFile(zip_file_location) as zf:  #
@@ -60,13 +60,6 @@ def import_dwca(dataset_id, zip_file_location='/tmp/tmp.zip'):
         return 0
 
     return count
-
-
-def import_event(dataset_id, event_file, occurrence_file, extensions):
-    # Copy event to temp, set eventid, import into separate table (event table?)
-    # Import occurrence as usual, set parent_id = eventid
-    # Import extensions (e.g. mof, ??), into extensions, parent_id
-    pass
 
 
 def get_columns(firstline):
