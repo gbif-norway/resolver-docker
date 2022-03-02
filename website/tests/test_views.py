@@ -126,7 +126,7 @@ class ResolverViewTests(APITestCase):
 
     def test_renders_dataset_json_ld(self):
         response_string = self._simple_request_dataset('application/ld+json')
-        expected_response = {'dc:type': 'dataset',
+        expected_response = {'rdf:type': 'dataset',
                              'owl:sameas': 'https://doi.org/10.12345/abcdef',
                              'rdfs:label': 'my dataset name' ,
                              '@id': 'http://purl.org/gbifnorway/id/urn:uuid:5c0884ce-608c-4716-ba0e-cb389dca5580',
@@ -135,7 +135,8 @@ class ResolverViewTests(APITestCase):
                              '@context': {'dc': 'http://purl.org/dc/elements/1.1/',
                                           'dwc': 'http://rs.tdwg.org/dwc/terms/',
                                           'owl': 'https://www.w3.org/tr/owl-ref/',
-                                          'rdfs': 'https://www.w3.org/tr/rdf-schema/'}}
+                                          'rdfs': 'https://www.w3.org/tr/rdf-schema/',
+                                          'rdf': 'https://www.w3.org/tr/rdf-schema/'}}
         self.assertEqual(expected_response, json.loads(response_string))
 
     def test_renders_occurrence_rdf(self):

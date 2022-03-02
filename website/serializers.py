@@ -45,8 +45,9 @@ class ResolvableObjectSerializer(serializers.ModelSerializer):
             del prefixed_object['dwc:sameas']
 
         if 'dwc:type' in prefixed_object:
-            prefixed_object['dc:type'] = prefixed_object['dwc:type']
+            prefixed_object['rdf:type'] = prefixed_object['dwc:type']
             del prefixed_object['dwc:type']
+            prefixed_object['@context']['rdf'] = 'https://www.w3.org/tr/rdf-schema/'
 
         if 'dwc:label' in prefixed_object:
             prefixed_object['rdfs:label'] = prefixed_object['dwc:label']
