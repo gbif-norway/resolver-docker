@@ -27,7 +27,7 @@ class MigrationProcessingTest(TestCase):
 
     def test_import_dwca_works_for_mof_ids(self):
         migration_processing.import_dwca('my_dataset_id', '/code/populator/tests/mock_data/dwca_measurementorfact.zip')
-        self.assertEqual(ResolvableObjectMigration.objects.first().id, '4335276d-7d77-47be-8e33-91b6833b057b')  # Make sure it hasn't overwritten it with the core ID
+        self.assertEqual(ResolvableObjectMigration.objects.first().id, '2335276d-7d77-47be-8e33-91b6833b057b')  # Make sure it hasn't overwritten it with the core ID
 
     def test_blank_fields_not_imported(self):
         migration_processing.import_dwca('my_dataset_id', '/code/populator/tests/mock_data/dwc_archive_bad_rows.zip')
