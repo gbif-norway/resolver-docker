@@ -1,16 +1,28 @@
 version: '3'
 
 services:
+  db:
+    image: postgres
+    shm_size: 5g
+    environment:
+        - POSTGRES_HOST_AUTH_METHOD=trust
+
   web:
-    image: resolver-populate
+    image: resolver-populate-test
     build: .
     command: python manage.py test
-    env_file:
-      - ./test.env
+    environment:
+      - SQL_ENGINE=django.db.backends.postgresql
+      - SQL_DATABASE=postgres
+      - SQL_USER=postgres
+      - SQL_PASSWORD=
+      - SQL_HOST=db
+      - SQL_PORT=5432
+      - VIRTUAL_HOST=resolver.local
+      - VIRTUAL_PORT=8080
     volumes:
-      - .:/code
-
-networks:
-  default:
-    external:
-      name: nginx-proxy
+      - .:/cod
+    expose:
+      - 80
+    depends_on:
+      - dbe
