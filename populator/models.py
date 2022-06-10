@@ -16,7 +16,6 @@ class History(models.Model):
     changed_date = models.DateField()
     #models.UniqueConstraint(fields=['resolvable_object', 'changed_date'], name='one_ro_per_date')
 
-
 # Need to store count of dwc objects manually as it's too time consuming to calculate on the fly
 class StatisticsManager(models.Manager):
     def get_total_count(self):
