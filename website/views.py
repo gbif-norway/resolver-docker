@@ -11,6 +11,13 @@ class HistoryViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = History.objects.all()
     serializer_class = HistorySerializer
 
+    def get_queryset(self):
+        queryset = History.objects.all()
+        resolvable_object = self.request.query_params.get('resolvable_object')
+        if resolvable_object is not None:
+            queryset = queryset.filter(resolvable_object=resolvable_object)
+        return queryset
+
 
 class ResolvableObjectViewSet(viewsets.ReadOnlyModelViewSet):
     """
