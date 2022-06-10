@@ -1,7 +1,7 @@
 from .models import ResolvableObject, Dataset
 from populator.models import History
 from rest_framework import viewsets, renderers, pagination
-from .serializers import ResolvableObjectSerializer, DatasetSerializer
+from .serializers import ResolvableObjectSerializer, DatasetSerializer, HistorySerializer
 from .renderers import RDFRenderer, JSONLDRenderer
 from .paginators import CustomPagination, CustomCountPagination
 
@@ -9,6 +9,14 @@ from .paginators import CustomPagination, CustomCountPagination
 class HistoryViewSet(viewsets.ReadOnlyModelViewSet):
     renderer_classes = (renderers.JSONRenderer, renderers.BrowsableAPIRenderer, JSONLDRenderer, RDFRenderer)
     queryset = History.objects.all()
+    serializer_class = HistorySerializer
+
+    def get_queryset(self):
+        queryset = History.objects.all()
+        resolvable_object = self.request.query_params.get('resolvable_object')
+        if resolvable_object is not None:
+            queryset = queryset.filter(resolvable_object=resolvable_object)
+        return queryset
 
 
 class ResolvableObjectViewSet(viewsets.ReadOnlyModelViewSet):

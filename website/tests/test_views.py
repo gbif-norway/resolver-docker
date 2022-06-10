@@ -1,8 +1,29 @@
 from website.models import ResolvableObject, Dataset
-from populator.models import Statistic
+from populator.models import Statistic, History
 import json
 from rest_framework.test import APITestCase
 from rest_framework.reverse import reverse
+
+
+class HistoryViewTests(APITestCase):
+    def setUp(self):
+        self.dataset = Dataset.objects.create(id='dataset_id', data={'label': 'My dataset', 'key': 'a', 'type': 'event'})
+        self.resolvable_object = ResolvableObject.objects.create(id='a', data={'test': 'a'}, dataset=self.dataset)
+
+    def test_list(self):
+        History.objects.create(resolvable_object=self.resolvable_object, changed_data={'test': 'b'})
+        History.objects.create(resolvable_object=self.resolvable_object, changed_data={'test': 'c'})
+        response = self.client.get(reverse('history-list'), HTTP_ACCEPT='application/ld+json')
+        results = json.loads(response.content.decode('utf-8').lower())
+        self.assertEqual(len(results['results']), 2)
+
+    def test_filters(self):
+        History.objects.create(resolvable_object=self.resolvable_object, changed_data={'test': 'b'})
+        new = ResolvableObject.objects.create(id='b', data={'testb': 'a'}, dataset=self.dataset)
+        History.objects.create(resolvable_object=new, changed_data={'testb': 'b'})
+        response = self.client.get(reverse('history-list') + '?resolvable_object=b', HTTP_ACCEPT='application/ld+json')
+        results = json.loads(response.content.decode('utf-8').lower())
+        self.assertEqual(len(results['results']), 1)
 
 
 class ResolverViewTests(APITestCase):

@@ -13,7 +13,7 @@ class ResolvableObjectMigration(models.Model):
 class History(models.Model):
     resolvable_object = models.ForeignKey(ResolvableObject, on_delete=models.DO_NOTHING)
     changed_data = JSONField()
-    changed_date = models.DateField()
+    changed_date = models.DateField(auto_now=True)
     #models.UniqueConstraint(fields=['resolvable_object', 'changed_date'], name='one_ro_per_date')
 
 
@@ -45,4 +45,3 @@ class Statistic(models.Model):
     name = models.CharField(primary_key=True, max_length=100)
     value = models.IntegerField()
     objects = StatisticsManager()
-
