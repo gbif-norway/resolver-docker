@@ -161,10 +161,6 @@ class PopulateResolverTest(TestCase):
         self.assertEqual(ResolvableObject.objects.count(), 0)
 
     @responses.activate
-    def test_something(self):
-        pass
-
-    @responses.activate
     def _logs_while_adding_dataset_to_resolver(self):
         return # Disable logging for the moment
         self.assertEqual(ResolvableObject.objects.count(), 0)
