@@ -17,16 +17,20 @@ def get_dataset_id(zip_file_location):
 
 def import_dwca(dataset_id, zip_file_location='/tmp/tmp.zip'):
     logger = logging.getLogger(__name__)
-    supported_cores = ['occurrence.txt', 'event.txt', 'taxon.txt', 'measurementorfact.txt']
+    supported_files = ['event.txt', 'occurrence.txt', 'taxon.txt', 'measurementorfact.txt']
     count = 0
     try:
         with ZipFile(zip_file_location) as zf:  #
             logger.info(zf.namelist())
-            for file_name in [file_name for file_name in zf.namelist() if file_name in supported_cores]:
-                with zf.open(file_name) as f:
+            valid_files = [file_name.replace('.txt', '') for file_name in zf.namelist() if file_name in supported_files]
+            core = get_core(valid_files)
+            for file_name in valid_files:
+                with zf.open(f'{file_name}.txt') as f:
                     logger.info('about to import ' + file_name)
                     now = datetime.now()
-                    create_temp_table(get_columns(f.readline()))
+                    columns = get_columns(f.readline())
+                    create_temp_table(columns)
+                    logger.info(f'created empty temp table with columns: {columns}')
                     try:
                         import_file(f)
                     except p.errors.CharacterNotInRepertoire as e:
@@ -37,24 +41,23 @@ def import_dwca(dataset_id, zip_file_location='/tmp/tmp.zip'):
                         logger.error(e)
                         logger.error('file_name')
                         continue
-                    logger.info('fin copy from stdin, took {}'.format(str(datetime.now() - now)))
+                    logger.info(f'fin copy from stdin, took {datetime.now() - now}')
                     now = datetime.now()
 
-                    core_type = re.sub('\.txt$', '', file_name)
-                    if not sync_id_column(get_core_id(core_type)):
-                        logger.info('Warning: could not sync id column for {}'.format(core_type))
+                    if not sync_id_column(get_id(file_name), get_id(core)):
+                        logger.info(f'Warning: could not sync id column for {file_name}')
                         return 0
 
-                    purlfriendly_id_column()
-                    record_duplicates(dataset_id, core_type)
+                    purlfriendly_id_columns()
+                    record_duplicates(dataset_id, file_name)
                     remove_duplicates()
-                    logger.info('fin get duplicates, took {}'.format(datetime.now() - now))
+                    logger.info(f'fin get duplicates, took {datetime.now() - now}')
                     now = datetime.now()
                     create_index()
-                    logger.info('fin creating index {}, took {}'.format(count, datetime.now() - now))
+                    logger.info(f'fin creating index {count}, took {datetime.now() - now}')
                     now = datetime.now()
-                    count += insert_json_into_migration_table(dataset_id, core_type)
-                    logger.info('fin inserted {}, took {}'.format(count, datetime.now() - now))
+                    count += insert_json_into_migration_table(dataset_id, file_name)
+                    logger.info(f'fin inserted {count}, took {datetime.now() - now}')
     except BadZipFile:
         logger.error('Bad zip')
         return 0
@@ -76,22 +79,32 @@ def create_temp_table(columns):
         cursor.execute('DROP TABLE IF EXISTS temp; CREATE TABLE temp ("' + '" text, "'.join(columns) + '" text);')
 
 
-def get_core_id(core_type):
-    CORE_ID_MAPPINGS = {'event': 'eventid', 'occurrence': 'occurrenceid', 'extendedmeasurementorfact': 'measurementid', 'measurementorfact': 'measurementid', 'taxon': 'taxonid'}
+def get_core(file_list):
+    for type in ['event', 'occurrence', 'taxon']:
+        for file in file_list:
+            if file == type:
+                return type
+    return False
+
+def get_id(file_type):
+    ID_MAPPINGS = {'event': 'eventid', 'occurrence': 'occurrenceid', 'extendedmeasurementorfact': 'measurementid', 'measurementorfact': 'measurementid', 'taxon': 'taxonid'}
     try:
-        return CORE_ID_MAPPINGS[core_type]
+        return ID_MAPPINGS[file_type]
     except KeyError as e:
         logger = logging.getLogger(__name__)
-        logger.error('Key error for core type {}'.format(core_type))
+        logger.error('Key error for core type {}'.format(file_type))
         return False
 
 
-def sync_id_column(id_column):
+def sync_id_column(id_column, core_id):
     try:
         with connection.cursor() as cursor:
+            cursor.execute("ALTER TABLE temp ADD COLUMN parent_id text")
             cursor.execute("SELECT COUNT(*) FROM information_schema.columns WHERE table_name='temp' and column_name='id';")
             if cursor.fetchone()[0] == 0:
                 cursor.execute("ALTER TABLE temp ADD COLUMN id text")
+            elif core_id and core_id != id_column:
+                cursor.execute("UPDATE temp SET parent_id = id")  # So we do not lose the core ids
             cursor.execute("UPDATE temp SET id = %s" % id_column)
         with connection.cursor() as cursor:  # Some NHM datasets have purl IDs in othercatalognumbers
             cursor.execute("SELECT COUNT(*) FROM information_schema.columns WHERE table_name='temp' and column_name='othercatalognumbers';")
@@ -108,18 +121,20 @@ def sync_id_column(id_column):
         logger = logging.getLogger(__name__)
         logger.error('Undefined column')
         return False
-    except utils.ProgrammingError:
+    except utils.ProgrammingError as e:
         logger = logging.getLogger(__name__)
-        logger.error('Programming error')
+        logger.error(f'Programming error {e}')
         return False
     return True
 
 
-def purlfriendly_id_column():  # PURL breaks when there is a ":" in the URL
+def purlfriendly_id_columns():  # PURL breaks when there is a ":" in the URL
     with connection.cursor() as cursor:
         cursor.execute("UPDATE temp SET id = REPLACE(id, 'urn:uuid:', '')")
+        cursor.execute("UPDATE temp SET parent_id = REPLACE(parent_id, 'urn:uuid:', '')")
     with connection.cursor() as cursor:
         cursor.execute("UPDATE temp SET id = REPLACE(id, 'http://purl.org/nhmuio/id/', '')")
+        cursor.execute("UPDATE temp SET parent_id = REPLACE(parent_id, 'http://purl.org/nhmuio/id/', '')")
 
 
 def add_dataset_id(dataset_id):
@@ -171,9 +186,9 @@ def insert_json_into_migration_table(dataset_id, core_type, step=300000):
     for i in range(0, _max, step):
         logger = logging.getLogger(__name__)
         logger.info('Migration loop: {}'.format(i))
-        make_json_sql = """SELECT temp.id, json_strip_nulls(row_to_json(temp)), '{0}', '{1}'
-                           FROM temp ORDER BY temp.id LIMIT {2} OFFSET {3};""".format(dataset_id, core_type, step, i)
-        insert_sql = 'INSERT INTO populator_resolvableobjectmigration(id, data, dataset_id, type) ' + make_json_sql
+        make_json_sql = (f"SELECT temp.id, json_strip_nulls(row_to_json(temp)), '{dataset_id}', '{core_type}', temp.parent_id"
+                         f" FROM temp ORDER BY temp.id LIMIT {step} OFFSET {i};")
+        insert_sql = 'INSERT INTO populator_resolvableobjectmigration(id, data, dataset_id, type, parent_id) ' + make_json_sql
         with connection.cursor() as cursor:
             cursor.execute(insert_sql)
             count += cursor.rowcount

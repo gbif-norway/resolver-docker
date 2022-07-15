@@ -5,6 +5,7 @@ from website.models import ResolvableObject
 
 class ResolvableObjectMigration(models.Model):
     id = models.CharField(max_length=200, primary_key=True, serialize=False)
+    parent_id = models.CharField(max_length=200, null=True, blank=True)
     data = JSONField()
     type = models.CharField(max_length=200)
     dataset_id = models.CharField(max_length=200)
