@@ -48,7 +48,7 @@ def import_dwca(dataset_id, zip_file_location='/tmp/tmp.zip'):
                         logger.info(f'Warning: could not sync id column for {file_name}')
                         return 0
 
-                    purlfriendly_id_column()
+                    purlfriendly_id_columns()
                     record_duplicates(dataset_id, file_name)
                     remove_duplicates()
                     logger.info(f'fin get duplicates, took {datetime.now() - now}')
@@ -128,11 +128,13 @@ def sync_id_column(id_column, core_id):
     return True
 
 
-def purlfriendly_id_column():  # PURL breaks when there is a ":" in the URL
+def purlfriendly_id_columns():  # PURL breaks when there is a ":" in the URL
     with connection.cursor() as cursor:
         cursor.execute("UPDATE temp SET id = REPLACE(id, 'urn:uuid:', '')")
+        cursor.execute("UPDATE temp SET parent_id = REPLACE(parent_id, 'urn:uuid:', '')")
     with connection.cursor() as cursor:
         cursor.execute("UPDATE temp SET id = REPLACE(id, 'http://purl.org/nhmuio/id/', '')")
+        cursor.execute("UPDATE temp SET parent_id = REPLACE(parent_id, 'http://purl.org/nhmuio/id/', '')")
 
 
 def add_dataset_id(dataset_id):
