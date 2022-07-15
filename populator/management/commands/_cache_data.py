@@ -68,7 +68,9 @@ def merge_in_new_data(reset=False, step=5000):
             cursor.execute(sql)
         log_time(start, 'added deleted dates')
         #connection.close()
-    except:
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.error(e)
         import pdb; pdb.set_trace()
 
 
@@ -129,8 +131,8 @@ def update_website_resolvableobject():
 def get_add_new_records_sql():
     # Add new records as darwincoreobjects, may be faster to use https://stackoverflow.com/questions/19363481/select-rows-which-are-not-present-in-other-table
     return """
-        INSERT INTO website_resolvableobject(id, data, type, dataset_id, created_date)
-        SELECT new.id, new.data, new.type, new.dataset_id, CURRENT_DATE
+        INSERT INTO website_resolvableobject(id, data, type, dataset_id, created_date, parent_id)
+        SELECT new.id, new.data, new.type, new.dataset_id, CURRENT_DATE, new.parent_id
         FROM populator_resolvableobjectmigration AS new
         LEFT JOIN website_resolvableobject AS old ON new.id = old.id
         WHERE old.id IS NULL
