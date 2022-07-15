@@ -26,11 +26,22 @@ class MigrationProcessingTest(TestCase):
         self.assertEqual(ResolvableObjectMigration.objects.filter(type='measurementorfact').count(), 10)
         self.assertEqual(ResolvableObjectMigration.objects.filter(type='occurrence').count(), 1)
 
-    def test_import_dwca_works_for_mof_ids(self):
+    def test_import_dwca_links_mof_parent_ids_to_occurrences(self):
         migration_processing.import_dwca('my_dataset_id', '/code/populator/tests/mock_data/dwca_measurementorfact.zip')
-        obj = ResolvableObjectMigration.objects.filter(type='measurementorfact').first()
-        self.assertEqual(obj.id, '2335276d-7d77-47be-8e33-91b6833b057b')  # Make sure it hasn't overwritten it with the core ID
-        self.assertEqual(obj.parent_id, 'c2382943-4325-442f-bad5-dd27f2a9703a')  # This is the core ID, an occurrenceID in this case
+        mof = ResolvableObjectMigration.objects.filter(type='measurementorfact').first()
+        self.assertEqual(mof.id, '2335276d-7d77-47be-8e33-91b6833b057b')  # Make sure it hasn't overwritten it with the core ID
+        occ = ResolvableObjectMigration.objects.filter(type='occurrence').first()
+        self.assertEqual(mof.parent_id, occ.id)  # This is the core ID, an occurrenceID in this case
+
+    def test_import_dwca_links_mof_parent_ids_to_events(self):
+        migration_processing.import_dwca('my_dataset_id', '/code/populator/tests/mock_data/dwca_measurementorfact-events.zip')
+        mof = ResolvableObjectMigration.objects.filter(type='measurementorfact').first()
+        self.assertEqual(mof.id, '2335276d-7d77-47be-8e33-91b6833b057b')
+        event = ResolvableObjectMigration.objects.filter(type='event').first()
+        self.assertEqual(mof.parent_id, event.id)
+        occ = ResolvableObjectMigration.objects.filter(type='occurrence').first()
+        self.assertNotEqual(occ.id, occ.parent_id)
+        self.assertEqual(occ.parent_id, event.id)
 
     def test_blank_fields_not_imported(self):
         migration_processing.import_dwca('my_dataset_id', '/code/populator/tests/mock_data/dwc_archive_bad_rows.zip')
@@ -140,21 +151,21 @@ class MigrationProcessingTest(TestCase):
 
     def test_purlfriendly_id_with_urn_prefix(self):
         with connection.cursor() as cursor:
-            cursor.execute("CREATE TABLE temp (id text)")
-            cursor.execute("INSERT INTO temp VALUES ('urn:uuid:1')")
-            migration_processing.purlfriendly_id_column()
+            cursor.execute("CREATE TABLE temp (id text, parent_id text)")
+            cursor.execute("INSERT INTO temp VALUES ('urn:uuid:1', '')")
+            migration_processing.purlfriendly_id_columns()
             cursor.execute('SELECT * FROM temp')
             columns = [col[0] for col in cursor.description]
-            self.assertEqual(dict(zip(columns, cursor.fetchone())), {'id': '1'})
+            self.assertEqual(dict(zip(columns, cursor.fetchone())), {'id': '1', 'parent_id': ''})
 
     def test_purlfriendly_id_with_url(self):
         with connection.cursor() as cursor:
-            cursor.execute("CREATE TABLE temp (id text)")
-            cursor.execute("INSERT INTO temp VALUES ('http://purl.org/nhmuio/id/1')")
-            migration_processing.purlfriendly_id_column()
+            cursor.execute("CREATE TABLE temp (id text, parent_id text)")
+            cursor.execute("INSERT INTO temp VALUES ('', 'http://purl.org/nhmuio/id/1')")
+            migration_processing.purlfriendly_id_columns()
             cursor.execute('SELECT * FROM temp')
             columns = [col[0] for col in cursor.description]
-            self.assertEqual(dict(zip(columns, cursor.fetchone())), {'id': '1'})
+            self.assertEqual(dict(zip(columns, cursor.fetchone())), {'id': '', 'parent_id': '1'})
 
     def test_sync_occurrence_id_column_with_event_core(self):
         with connection.cursor() as cursor:
