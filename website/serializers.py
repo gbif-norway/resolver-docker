@@ -29,7 +29,7 @@ class ResolvableObjectSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         ret = super().to_representation(instance)
         prefixed_object = {'dwc:%s' % key: value for key, value in ret['data'].items()}
-        prefixed_object['core-type'] = ret['type']
+        prefixed_object['data-type'] = ret['type']
         dataset = ret['dataset']
         prefixed_object['dataset'] = {'label': dataset['label'], 'key': dataset['key'], 'type': dataset['type']}
         prefixed_object['@context'] = {'dc': 'http://purl.org/dc/elements/1.1/', 'dwc': 'http://rs.tdwg.org/dwc/terms/', 'owl': 'https://www.w3.org/tr/owl-ref/'}
@@ -55,3 +55,4 @@ class ResolvableObjectSerializer(serializers.ModelSerializer):
             prefixed_object['@context']['rdfs'] = 'https://www.w3.org/tr/rdf-schema/'
 
         return prefixed_object
+
