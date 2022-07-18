@@ -24,11 +24,19 @@ class HistoryViewTests(APITestCase):
         results = json.loads(response.content.decode('utf-8').lower())
         self.assertEqual(len(results['results']), 1)
 
-    def test_date_filter(self):
+    def test_changed_data_filter(self):
         response = self.client.get(reverse('history-list') + '?changed_data__test=b', HTTP_ACCEPT='application/ld+json')
         results = json.loads(response.content.decode('utf-8').lower())
         self.assertEqual(len(results['results']), 1)
         self.assertEqual(results['results'][0]['changed_data'], { 'test': 'b' })
+
+    def test_combined_filters(self):
+        new = ResolvableObject.objects.create(id='b', data={'test': 'c'}, dataset=self.dataset)
+        History.objects.create(resolvable_object=new, changed_data={'test': 'd'})
+        response = self.client.get(reverse('history-list') + '?resolvable_object=b&changed_data__test=d', HTTP_ACCEPT='application/ld+json')
+        results = json.loads(response.content.decode('utf-8').lower())
+        self.assertEqual(len(results['results']), 1)
+        self.assertEqual(results['results'][0]['changed_data'], { 'test': 'd' })
 
 
 class ResolverViewTests(APITestCase):
