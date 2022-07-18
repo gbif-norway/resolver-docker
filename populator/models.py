@@ -27,7 +27,7 @@ class StatisticsManager(models.Manager):
             return self.set_total_count()
 
     def set_total_count(self):
-        statistic, created = self.update_or_create(name='total_count', value=ResolvableObject.objects.count())
+        statistic, created = self.update_or_create(name='total_count', defaults={'value': ResolvableObject.objects.count()})
         return statistic.value
 
     def get_preserved_specimen_count(self):
@@ -38,7 +38,7 @@ class StatisticsManager(models.Manager):
 
     def set_preserved_specimen_count(self):
         statistic, created = self.update_or_create(name='preserved_specimen_count',
-                                                   value=ResolvableObject.object.filter(data__basisofrecord='Preservedspecimen').count())
+                                                   defaults={'value': ResolvableObject.object.filter(data__basisofrecord='Preservedspecimen').count()})
         return statistic.value
 
 
