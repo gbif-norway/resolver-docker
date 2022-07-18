@@ -4,19 +4,21 @@ from rest_framework import viewsets, renderers, pagination
 from .serializers import ResolvableObjectSerializer, DatasetSerializer, HistorySerializer
 from .renderers import RDFRenderer, JSONLDRenderer
 from .paginators import CustomPagination, CustomCountPagination
+from django_filters.rest_framework import DjangoFilterBackend
 
 
 class HistoryViewSet(viewsets.ReadOnlyModelViewSet):
     renderer_classes = (renderers.JSONRenderer, renderers.BrowsableAPIRenderer, JSONLDRenderer, RDFRenderer)
     queryset = History.objects.all()
     serializer_class = HistorySerializer
+    filter_backends = [DjangoFilterBackend]
+    filter_fields = ('resolvable_object', 'changed_date')
 
     def get_queryset(self):
-        queryset = History.objects.all()
-        resolvable_object = self.request.query_params.get('resolvable_object')
-        if resolvable_object is not None:
-            queryset = queryset.filter(resolvable_object=resolvable_object)
-        return queryset
+        query_params = self.request.query_params
+        changed_data_args = { key.replace('changed_data__', ''): item for key, item in query_params.items() if 'changed_data__' in key }
+        args = {'changed_data__contains': changed_data_args}
+        return History.objects.filter(**args)
 
 
 class ResolvableObjectViewSet(viewsets.ReadOnlyModelViewSet):
