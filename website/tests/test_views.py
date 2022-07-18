@@ -9,21 +9,34 @@ class HistoryViewTests(APITestCase):
     def setUp(self):
         self.dataset = Dataset.objects.create(id='dataset_id', data={'label': 'My dataset', 'key': 'a', 'type': 'event'})
         self.resolvable_object = ResolvableObject.objects.create(id='a', data={'test': 'a'}, dataset=self.dataset)
+        History.objects.create(resolvable_object=self.resolvable_object, changed_data={'test': 'b'})
 
     def test_list(self):
-        History.objects.create(resolvable_object=self.resolvable_object, changed_data={'test': 'b'})
         History.objects.create(resolvable_object=self.resolvable_object, changed_data={'test': 'c'})
         response = self.client.get(reverse('history-list'), HTTP_ACCEPT='application/ld+json')
         results = json.loads(response.content.decode('utf-8').lower())
         self.assertEqual(len(results['results']), 2)
 
     def test_filters(self):
-        History.objects.create(resolvable_object=self.resolvable_object, changed_data={'test': 'b'})
         new = ResolvableObject.objects.create(id='b', data={'testb': 'a'}, dataset=self.dataset)
         History.objects.create(resolvable_object=new, changed_data={'testb': 'b'})
         response = self.client.get(reverse('history-list') + '?resolvable_object=b', HTTP_ACCEPT='application/ld+json')
         results = json.loads(response.content.decode('utf-8').lower())
         self.assertEqual(len(results['results']), 1)
+
+    def test_changed_data_filter(self):
+        response = self.client.get(reverse('history-list') + '?changed_data__test=b', HTTP_ACCEPT='application/ld+json')
+        results = json.loads(response.content.decode('utf-8').lower())
+        self.assertEqual(len(results['results']), 1)
+        self.assertEqual(results['results'][0]['changed_data'], { 'test': 'b' })
+
+    def test_combined_filters(self):
+        new = ResolvableObject.objects.create(id='b', data={'test': 'c'}, dataset=self.dataset)
+        History.objects.create(resolvable_object=new, changed_data={'test': 'd'})
+        response = self.client.get(reverse('history-list') + '?resolvable_object=b&changed_data__test=d', HTTP_ACCEPT='application/ld+json')
+        results = json.loads(response.content.decode('utf-8').lower())
+        self.assertEqual(len(results['results']), 1)
+        self.assertEqual(results['results'][0]['changed_data'], { 'test': 'd' })
 
 
 class ResolverViewTests(APITestCase):
