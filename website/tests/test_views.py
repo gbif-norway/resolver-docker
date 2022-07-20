@@ -24,19 +24,38 @@ class HistoryViewTests(APITestCase):
         results = json.loads(response.content.decode('utf-8').lower())
         self.assertEqual(len(results['results']), 1)
 
-    def test_changed_data_filter(self):
-        response = self.client.get(reverse('history-list') + '?changed_data__test=b', HTTP_ACCEPT='application/ld+json')
+    def test_changed_data_contains_single_filter(self):
+        History.objects.create(resolvable_object=self.resolvable_object, changed_data={'test': 'c'})
+        response = self.client.get(reverse('history-list') + '?changed_data__contains={"test":"b"}', HTTP_ACCEPT='application/ld+json')
+        results = json.loads(response.content.decode('utf-8').lower())
+        self.assertEqual(len(results['results']), 1)
+        self.assertEqual(results['results'][0]['changed_data'], { 'test': 'b' })
+
+    def test_changed_data_contains_multiple_filter(self):
+        History.objects.create(resolvable_object=self.resolvable_object, changed_data={'test': 'c', 'new': 'd'})
+        response = self.client.get(reverse('history-list') + '?changed_data__contains={"test":"c", "new": "d"}', HTTP_ACCEPT='application/ld+json')
+        results = json.loads(response.content.decode('utf-8').lower())
+        self.assertEqual(len(results['results']), 1)
+        self.assertEqual(results['results'][0]['changed_data'], { 'test': 'c', 'new': 'd' })
+
+    def test_changed_data_has_key_filter(self):
+        History.objects.create(resolvable_object=self.resolvable_object, changed_data={'newkey': 'new'})
+        response = self.client.get(reverse('history-list') + '?changed_data__has_key=test', HTTP_ACCEPT='application/ld+json')
         results = json.loads(response.content.decode('utf-8').lower())
         self.assertEqual(len(results['results']), 1)
         self.assertEqual(results['results'][0]['changed_data'], { 'test': 'b' })
 
     def test_combined_filters(self):
-        new = ResolvableObject.objects.create(id='b', data={'test': 'c'}, dataset=self.dataset)
-        History.objects.create(resolvable_object=new, changed_data={'test': 'd'})
-        response = self.client.get(reverse('history-list') + '?resolvable_object=b&changed_data__test=d', HTTP_ACCEPT='application/ld+json')
+        History.objects.create(resolvable_object=self.resolvable_object, changed_data={'filterx': 'x', 'filtery': 'y', 'newkey': '-'})
+        new = ResolvableObject.objects.create(id='b', data={}, dataset=self.dataset)
+        History.objects.create(resolvable_object=new, changed_data={'filterx': 'x', 'filtery': 'y'})
+        History.objects.create(resolvable_object=new, changed_data={'filterx': 'x', 'filtery': 'y', 'newkey': '-', 'anotherkey': '-'})
+        filters = '&'.join(['resolvable_object=b', 'changed_data__contains={"filterx": "x", "filtery": "y"}', 'changed_data__has_key=newkey'])
+        response = self.client.get(reverse('history-list') + '?' + filters, HTTP_ACCEPT='application/ld+json')
         results = json.loads(response.content.decode('utf-8').lower())
         self.assertEqual(len(results['results']), 1)
-        self.assertEqual(results['results'][0]['changed_data'], { 'test': 'd' })
+        print(results['results'][0])
+        self.assertEqual(results['results'][0]['changed_data'], { 'newkey': '-', 'filterx': 'x', 'filtery': 'y', 'anotherkey': '-' })
 
 
 class ResolverViewTests(APITestCase):

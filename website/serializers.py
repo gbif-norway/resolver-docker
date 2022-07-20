@@ -3,10 +3,10 @@ from .models import ResolvableObject, Dataset
 from populator.models import History
 
 
-class HistorySerializer(serializers.HyperlinkedModelSerializer):
+class HistorySerializer(serializers.ModelSerializer):
     class Meta:
         model = History
-        fields = ('resolvable_object', 'changed_data', 'changed_date')
+        fields = ('resolvable_object_id', 'changed_data', 'changed_date')
 
 
 class DatasetSerializer(serializers.HyperlinkedModelSerializer):
@@ -24,7 +24,7 @@ class ResolvableObjectSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ResolvableObject
-        fields = ('data', 'type', 'dataset')
+        fields = ('data', 'type', 'dataset', 'deleted_date')
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)
@@ -32,6 +32,7 @@ class ResolvableObjectSerializer(serializers.ModelSerializer):
         prefixed_object['data-type'] = ret['type']
         dataset = ret['dataset']
         prefixed_object['dataset'] = {'label': dataset['label'], 'key': dataset['key'], 'type': dataset['type']}
+        prefixed_object['deleted_date'] = ret['deleted_date']
         prefixed_object['@context'] = {'dc': 'http://purl.org/dc/elements/1.1/', 'dwc': 'http://rs.tdwg.org/dwc/terms/', 'owl': 'https://www.w3.org/tr/owl-ref/'}
 
         if 'dwc:id' in prefixed_object:
