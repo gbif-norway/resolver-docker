@@ -123,7 +123,7 @@ def insert_history():
 def update_website_resolvableobject():
     with connection.cursor() as cursor:
         cursor.execute("""UPDATE website_resolvableobject 
-                          SET data = temp_updated.data
+                          SET data = temp_updated.data, deleted_date = NULL
                           FROM temp_updated
                           WHERE website_resolvableobject.id = temp_updated.id""")
 
