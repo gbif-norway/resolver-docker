@@ -11,7 +11,7 @@ def sync_datasets(migration_dataset_ids):
     deleted_datasets = Dataset.objects.exclude(id__in=migration_dataset_ids)
     log_time(start, ', '.join([x.id for x in deleted_datasets]))
     deleted_datasets.update(deleted_date=date.today())
-    log_time(start, 'syncing datasets')
+    log_time(start, 'synced datasets')
 
     ResolvableObject.objects.filter(dataset__id__in=[x.id for x in deleted_datasets]).update(deleted_date=date.today())
 
@@ -114,16 +114,18 @@ def populate_temp_updated_table(limit, offset):
 
 
 def insert_history():
+    # Exclude records where the only thing that changes is the modified date
     with connection.cursor() as cursor:
         cursor.execute("""INSERT INTO populator_history(resolvable_object_id, changed_data, changed_date)
                           SELECT id, changed_data, CURRENT_DATE
-                          FROM temp_updated""")
+                          FROM temp_updated
+                          WHERE NOT (changed_data ?& array['modified'])""")
 
 
 def update_website_resolvableobject():
     with connection.cursor() as cursor:
         cursor.execute("""UPDATE website_resolvableobject 
-                          SET data = temp_updated.data
+                          SET data = temp_updated.data, deleted_date = NULL
                           FROM temp_updated
                           WHERE website_resolvableobject.id = temp_updated.id""")
 

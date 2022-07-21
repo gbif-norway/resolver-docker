@@ -64,7 +64,7 @@ class Command(BaseCommand):
 
         if not options['skip']:
             start = datetime.now()
-            #_cache_data.sync_datasets(dataset_ids)
+            _cache_data.sync_datasets(dataset_ids)
             log_time(start, 'caching complete')
 
         start = datetime.now()
@@ -83,15 +83,16 @@ def create_duplicates_file(file='/code/duplicates.txt'):
 def sync_dataset(dataset):
     dataset['label'] = dataset['title']
     dataset['sameas'] = dataset['doi']
+    key = dataset.pop('key')
     del dataset['title'], dataset['doi']
     try:
-        dataset_object = Dataset.objects.get(id=dataset['key'])
+        dataset_object = Dataset.objects.get(id=key)
         if dataset_object.data['modified'] == dataset['modified']:
             return False
         dataset_object.data = dataset
         dataset_object.save()
     except Dataset.DoesNotExist:
-        dataset_object = Dataset.objects.create(id=dataset['key'], data=dataset)
+        dataset_object = Dataset.objects.create(id=key, data=dataset)
     return dataset_object
 
 

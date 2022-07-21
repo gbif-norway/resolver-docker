@@ -7,7 +7,7 @@ from rest_framework.reverse import reverse
 
 class HistoryViewTests(APITestCase):
     def setUp(self):
-        self.dataset = Dataset.objects.create(id='dataset_id', data={'label': 'My dataset', 'key': 'a', 'type': 'event'})
+        self.dataset = Dataset.objects.create(id='dataset_id', data={'label': 'My dataset', 'type': 'event'})
         self.resolvable_object = ResolvableObject.objects.create(id='a', data={'test': 'a'}, dataset=self.dataset)
         History.objects.create(resolvable_object=self.resolvable_object, changed_data={'test': 'b'})
 
@@ -60,7 +60,7 @@ class HistoryViewTests(APITestCase):
 
 class ResolverViewTests(APITestCase):
     def setUp(self):
-        self.dataset = Dataset.objects.create(id='dataset_id', data={'label': 'My dataset', 'key': 'a', 'type': 'event'})
+        self.dataset = Dataset.objects.create(id='a', data={'label': 'My dataset', 'type': 'event'})
 
     def test_displays_index(self):
         Statistic.objects.set_total_count()
@@ -123,6 +123,19 @@ class ResolverViewTests(APITestCase):
         self.assertEqual(len(results['results']), 1)
         self.assertEqual(results['results'][0]['dwc:scientificname'], 'galium odoratum')
 
+    def test_filters_on_dataset_id(self):
+        id = 'urn:uuid:5c0884ce-608c-4716-ba0e-cb389dca5580'
+        ResolvableObject.objects.create(id=id, dataset=self.dataset, data={'id': id, 'basisOfRecord': 'preservedspecimen', 'scientificname': 'Galium odoratum'})
+        new_dataset = Dataset.objects.create(id='b', data={'label': 'New dataset', 'type': 'occurrence'})
+        id = 'urn:uuid:6c0884ce-608c-4716-ba0e-cb389dca5581'
+        ResolvableObject.objects.create(id=id, dataset=new_dataset, data={'id': id, 'basisOfRecord': 'preservedspecimen', 'scientificname': 'Eudyptes moseleyi'})
+
+        url = reverse('resolvableobject-list')
+        response = self.client.get(url + '?dataset_id=b', HTTP_ACCEPT='application/ld+json')
+        results = json.loads(response.content.decode('utf-8').lower())
+        self.assertEqual(len(results['results']), 1)
+        self.assertEqual(results['results'][0]['dataset']['id'], 'b')
+
     def test_filters_on_multiple(self):
         id = 'urn:uuid:5c0884ce-608c-4716-ba0e-cb389dca5580'
         ResolvableObject.objects.create(id=id, dataset=self.dataset, data={'id': id, 'basisOfRecord': 'preservedspecimen', 'scientificname': 'Galium odoratum'})
@@ -172,7 +185,7 @@ class ResolverViewTests(APITestCase):
                              'dwc:basisofrecord': 'preservedspecimen',
                              'data-type': '',
                              'deleted_date': None,
-                             'dataset': {'key': 'a', 'label': 'my dataset', 'type': 'event'},
+                             'dataset': {'id': 'a', 'label': 'my dataset', 'type': 'event'},
                              '@context': {'dc': 'http://purl.org/dc/elements/1.1/',
                                           'dwc': 'http://rs.tdwg.org/dwc/terms/',
                                           'owl': 'https://www.w3.org/tr/owl-ref/'}}
@@ -186,7 +199,7 @@ class ResolverViewTests(APITestCase):
                              '@id': 'http://purl.org/gbifnorway/id/urn:uuid:5c0884ce-608c-4716-ba0e-cb389dca5580',
                              'data-type': '',
                              'deleted_date': None,
-                             'dataset': {'key': 'a', 'label': 'my dataset', 'type': 'event'},
+                             'dataset': {'id': 'a', 'label': 'my dataset', 'type': 'event'},
                              '@context': {'dc': 'http://purl.org/dc/elements/1.1/',
                                           'dwc': 'http://rs.tdwg.org/dwc/terms/',
                                           'owl': 'https://www.w3.org/tr/owl-ref/',
