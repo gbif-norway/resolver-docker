@@ -81,6 +81,12 @@ class CacheDataTest(TransactionTestCase):
         expected = History(id=1, resolvable_object_id='a', changed_data={'location': 'old original'}, changed_date=date.today())
         self.assert_json_equal(History.objects.all(), [expected])
 
+    def test_ignores_changes_to_modified_fields(self):
+        self.create_ro({'scientificname': 'same', 'modified': '2011-01-01'})
+        self.create_ro_migration({'scientificname': 'same', 'modified': '2022-02-02'})
+        cache_data.merge_in_new_data()
+        self.assert_json_equal(History.objects.all(), [])
+
     def test_records_multiple_items_in_history_table(self):
         self.create_ro({'scientificname': 'same', 'location': 'old original'})
         self.create_ro_migration({'scientificname': 'same', 'location': 'new updated'})
@@ -159,4 +165,3 @@ class CacheDataTest(TransactionTestCase):
         cache_data.merge_in_new_data()
         self.assertEqual(ResolvableObject.objects.count(), 1)
         self.assertEqual(ResolvableObject.objects.first().deleted_date, None)
-
