@@ -7,7 +7,7 @@ from rest_framework.reverse import reverse
 
 class HistoryViewTests(APITestCase):
     def setUp(self):
-        self.dataset = Dataset.objects.create(id='dataset_id', data={'label': 'My dataset', 'key': 'a', 'type': 'event'})
+        self.dataset = Dataset.objects.create(id='dataset_id', data={'label': 'My dataset', 'type': 'event'})
         self.resolvable_object = ResolvableObject.objects.create(id='a', data={'test': 'a'}, dataset=self.dataset)
         History.objects.create(resolvable_object=self.resolvable_object, changed_data={'test': 'b'})
 
@@ -60,7 +60,7 @@ class HistoryViewTests(APITestCase):
 
 class ResolverViewTests(APITestCase):
     def setUp(self):
-        self.dataset = Dataset.objects.create(id='dataset_id', data={'label': 'My dataset', 'key': 'a', 'type': 'event'})
+        self.dataset = Dataset.objects.create(id='a', data={'label': 'My dataset', 'type': 'event'})
 
     def test_displays_index(self):
         Statistic.objects.set_total_count()
@@ -172,7 +172,7 @@ class ResolverViewTests(APITestCase):
                              'dwc:basisofrecord': 'preservedspecimen',
                              'data-type': '',
                              'deleted_date': None,
-                             'dataset': {'key': 'a', 'label': 'my dataset', 'type': 'event'},
+                             'dataset': {'id': 'a', 'label': 'my dataset', 'type': 'event'},
                              '@context': {'dc': 'http://purl.org/dc/elements/1.1/',
                                           'dwc': 'http://rs.tdwg.org/dwc/terms/',
                                           'owl': 'https://www.w3.org/tr/owl-ref/'}}
@@ -186,7 +186,7 @@ class ResolverViewTests(APITestCase):
                              '@id': 'http://purl.org/gbifnorway/id/urn:uuid:5c0884ce-608c-4716-ba0e-cb389dca5580',
                              'data-type': '',
                              'deleted_date': None,
-                             'dataset': {'key': 'a', 'label': 'my dataset', 'type': 'event'},
+                             'dataset': {'id': 'a', 'label': 'my dataset', 'type': 'event'},
                              '@context': {'dc': 'http://purl.org/dc/elements/1.1/',
                                           'dwc': 'http://rs.tdwg.org/dwc/terms/',
                                           'owl': 'https://www.w3.org/tr/owl-ref/',

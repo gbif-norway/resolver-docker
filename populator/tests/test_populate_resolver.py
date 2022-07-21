@@ -13,10 +13,11 @@ class SyncDatasetTest(TestCase):
     endpoints_example = [{'type': 'DWC_ARCHIVE', 'url': 'http://data.gbif.no/archive.do?r=dataset'}]
 
     def test_sync_dataset_creates_datasets(self):
+        self.assertEqual(Dataset.objects.count(), 0)
         dataset_details = {'title': '1', 'endpoints': self.endpoints_example, 'doi': 'doi:1', 'comments': '', 'key': 'a', 'modified': datetime.now().strftime('%Y-%m-%dT%H:%M:%S+0000')}
         sync_dataset(dataset_details)
-        self.assertEqual(Dataset.objects.all().count(), 1)
-        self.assertEqual(Dataset.objects.all()[0].data['key'], 'a')
+        self.assertEqual(Dataset.objects.count(), 1)
+        self.assertEqual(Dataset.objects.all()[0].id, 'a')
 
     def test_sync_dataset_updates_datasets(self):
         original = {'label': '1-no-change', 'endpoints': self.endpoints_example, 'sameas': 'doi:1', 'comments': '', 'key': 'a', 'modified': '2000-12-12T00:00:00.0+0000'}

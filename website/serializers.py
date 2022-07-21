@@ -12,11 +12,12 @@ class HistorySerializer(serializers.ModelSerializer):
 class DatasetSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Dataset
-        fields = ('data', )
+        fields = ('data', 'id', 'created_date', 'deleted_date')
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)
-        return ret['data']
+        data = ret.pop('data')
+        return {**data, **ret}
 
 
 class ResolvableObjectSerializer(serializers.ModelSerializer):
@@ -31,7 +32,7 @@ class ResolvableObjectSerializer(serializers.ModelSerializer):
         prefixed_object = {'dwc:%s' % key: value for key, value in ret['data'].items()}
         prefixed_object['data-type'] = ret['type']
         dataset = ret['dataset']
-        prefixed_object['dataset'] = {'label': dataset['label'], 'key': dataset['key'], 'type': dataset['type']}
+        prefixed_object['dataset'] = {'label': dataset['label'], 'id': dataset['id'], 'type': dataset['type']}
         prefixed_object['deleted_date'] = ret['deleted_date']
         prefixed_object['@context'] = {'dc': 'http://purl.org/dc/elements/1.1/', 'dwc': 'http://rs.tdwg.org/dwc/terms/', 'owl': 'https://www.w3.org/tr/owl-ref/'}
 
