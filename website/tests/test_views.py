@@ -123,6 +123,19 @@ class ResolverViewTests(APITestCase):
         self.assertEqual(len(results['results']), 1)
         self.assertEqual(results['results'][0]['dwc:scientificname'], 'galium odoratum')
 
+    def test_filters_on_dataset_id(self):
+        id = 'urn:uuid:5c0884ce-608c-4716-ba0e-cb389dca5580'
+        ResolvableObject.objects.create(id=id, dataset=self.dataset, data={'id': id, 'basisOfRecord': 'preservedspecimen', 'scientificname': 'Galium odoratum'})
+        new_dataset = Dataset.objects.create(id='b', data={'label': 'New dataset', 'type': 'occurrence'})
+        id = 'urn:uuid:6c0884ce-608c-4716-ba0e-cb389dca5581'
+        ResolvableObject.objects.create(id=id, dataset=new_dataset, data={'id': id, 'basisOfRecord': 'preservedspecimen', 'scientificname': 'Eudyptes moseleyi'})
+
+        url = reverse('resolvableobject-list')
+        response = self.client.get(url + '?dataset_id=b', HTTP_ACCEPT='application/ld+json')
+        results = json.loads(response.content.decode('utf-8').lower())
+        self.assertEqual(len(results['results']), 1)
+        self.assertEqual(results['results'][0]['dataset']['id'], 'b')
+
     def test_filters_on_multiple(self):
         id = 'urn:uuid:5c0884ce-608c-4716-ba0e-cb389dca5580'
         ResolvableObject.objects.create(id=id, dataset=self.dataset, data={'id': id, 'basisOfRecord': 'preservedspecimen', 'scientificname': 'Galium odoratum'})

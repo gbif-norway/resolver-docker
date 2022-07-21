@@ -52,14 +52,14 @@ class ResolvableObjectViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = ResolvableObjectSerializer
     pagination_class = CustomPagination
     filter_backends = [DjangoFilterBackend]
-    filter_fields = { 'deleted_date': ['gte', 'lte', 'exact'], 'dataset_id': ['exact'] }
+    filter_fields = { 'deleted_date': ['gte', 'lte', 'exact'], 'dataset_id': ['exact'], 'type': ['exact'] }
 
     def get_queryset(self):
         query_params = self.request.query_params
-        data_args = {key: item for key, item in query_params.items() if key not in ['offset', 'limit', 'format', 'type', '_add_counts']}
-        args = {'data__contains': data_args}
-        if 'type' in query_params:
-            args['type'] = query_params['type']
+        non_data_fields =['offset', 'limit', 'format', 'type', '_add_counts', 'dataset_id', 'deleted_date', 'deleted_date__gte', 'deleted_date__lte', 'type']
+        data_args = {key: item for key, item in query_params.items() if key not in non_data_fields }
+        args = { 'data__contains': data_args }
+
         if '_add_counts' in query_params and query_params['_add_counts'] == 'true':
             self.pagination_class = CustomCountPagination
         return ResolvableObject.objects.filter(**args)
