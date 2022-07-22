@@ -61,6 +61,23 @@ class PopulateResolverTest(TestCase):
         self.assertEqual(Dataset.objects.get(id='b').data['label'], 'changed')
 
     @responses.activate
+    def test_it_does_not_delete_records_from_unchanged_datasets(self):
+        self.assertEqual(ResolvableObject.objects.count(), 0)
+        self._mock_get_dataset_list()
+        self._mock_get_dataset_detailed_info()
+        with open(self.SMALL_TEST_FILE, 'rb') as dwc_zip_stream:
+            responses.add(responses.GET, self.endpoints_example[0]['url'], body=dwc_zip_stream.read(), status=200,
+                          content_type='application/zip', stream=True)
+
+        call_command('populate_resolver', stdout=StringIO())
+        self.assertEqual(ResolvableObject.objects.count(), 20191)
+        self.assertEqual(ResolvableObject.objects.exclude(deleted_date__isnull=True).count(), 0)
+
+        call_command('populate_resolver', stdout=StringIO())
+        self.assertEqual(ResolvableObject.objects.count(), 20191)
+        self.assertEqual(ResolvableObject.objects.exclude(deleted_date__isnull=True).count(), 0)
+
+    @responses.activate
     def test_it_adds_dataset_records_to_resolver(self):
         self.assertEqual(ResolvableObject.objects.count(), 0)
         self._mock_get_dataset_list()

@@ -29,6 +29,7 @@ class Command(BaseCommand):
             create_duplicates_file()
             reset_import_table()
         dataset_ids = []
+        unchanged_dataset_ids = []
         overall_start = datetime.now()
 
         # Iterate over GBIF datasets
@@ -48,6 +49,8 @@ class Command(BaseCommand):
                 continue
             if not sync_dataset(dataset_details):
                 self.logger.info('Dataset is unchanged, skipping')
+                dataset_ids.append(dataset['key'])
+                unchanged_dataset_ids.append(dataset['key'])
                 continue
 
             self.logger.info(endpoint['url'])
@@ -58,9 +61,9 @@ class Command(BaseCommand):
             else:
                 self.logger.info(f"Could not download dataset {dataset['key']}")
             dataset_ids.append(dataset['key'])
-            log_time(start, 'fin inserting dataset {}'.format(dataset['key']))
+            log_time(start, f"fin inserting dataset {dataset['key']}")
 
-        log_time(overall_start, 'finished all datasets, merging in starts next')
+        log_time(overall_start, f'finished all datasets {len(dataset_ids)}, merging in starts next')
 
         if not options['skip']:
             start = datetime.now()
@@ -68,7 +71,7 @@ class Command(BaseCommand):
             log_time(start, 'caching complete')
 
         start = datetime.now()
-        _cache_data.merge_in_new_data(False)  # options['reset']
+        _cache_data.merge_in_new_data(skipped_datasets=unchanged_dataset_ids)
         log_time(start, 'merging complete')
         start = datetime.now()
         total_count = Statistic.objects.set_total_count()

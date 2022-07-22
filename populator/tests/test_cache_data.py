@@ -46,6 +46,31 @@ class SyncDatasetTest(TestCase):
         self.assertEqual(set(ResolvableObject.objects.filter(dataset__id=ids[2]).values_list('deleted_date', flat=True)), {date.today()})
 
 
+class DeletedTimestampsTest(TestCase):
+    def setUp(self):
+        self.dataset = Dataset.objects.create(id='dataset_id', data={'title': 'My dataset'})
+
+    def test_does_not_add_deleted_datestamp_for_single_skipped_datasets(self):
+        ResolvableObject.objects.create(id='1', data={'none': 'none'}, dataset=self.dataset, type='occurrence')
+        cache_data.add_deleted_timestamps_for_missing_records([self.dataset.id])
+        self.assertEqual(ResolvableObject.objects.first().deleted_date, None)
+
+    def test_does_not_add_deleted_datestamp_for_multiple_skipped_datasets(self):
+        ResolvableObject.objects.create(id='1', data={'none': 'none'}, dataset=self.dataset, type='occurrence')
+        cache_data.add_deleted_timestamps_for_missing_records([self.dataset.id, 'different_dataset_id'])
+        self.assertEqual(ResolvableObject.objects.first().deleted_date, None)
+
+    def test_adds_deleted_datestamp(self):
+        ResolvableObject.objects.create(id='1', data={'none': 'none'}, dataset=self.dataset, type='occurrence')
+        cache_data.add_deleted_timestamps_for_missing_records(['different_dataset_id'])
+        self.assertEqual(ResolvableObject.objects.first().deleted_date, date.today())
+
+    def test_handles_empty_skipped_dataset_list(self):
+        ResolvableObject.objects.create(id='1', data={'none': 'none'}, dataset=self.dataset, type='occurrence')
+        cache_data.add_deleted_timestamps_for_missing_records([])
+        self.assertEqual(ResolvableObject.objects.first().deleted_date, date.today())
+
+
 class CacheDataTest(TransactionTestCase):
     reset_sequences = True
 

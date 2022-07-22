@@ -12,11 +12,10 @@ def sync_datasets(migration_dataset_ids):
     log_time(start, ', '.join([x.id for x in deleted_datasets]))
     deleted_datasets.update(deleted_date=date.today())
     log_time(start, 'synced datasets')
-
     ResolvableObject.objects.filter(dataset__id__in=[x.id for x in deleted_datasets]).update(deleted_date=date.today())
 
 
-def merge_in_new_data(reset=False, step=5000):
+def merge_in_new_data(skipped_datasets=[], reset=False, step=5000):
     logger = logging.getLogger(__name__)
     # if reset:
     #     reset()
@@ -49,25 +48,12 @@ def merge_in_new_data(reset=False, step=5000):
 
         start = datetime.now()
         log_time(start, 'adding new records starting now')
-        with connection.cursor() as cursor:
-            cursor.execute(get_add_new_records_sql())
-
+        add_new_records()
         log_time(start, 'added all new records')
-        start = datetime.now()
 
-        sql = """
-            UPDATE website_resolvableobject
-                SET deleted_date = CURRENT_DATE
-            WHERE id IN (
-                SELECT old.id
-                FROM website_resolvableobject AS old
-                LEFT JOIN populator_resolvableobjectmigration AS new ON new.id = old.id
-                WHERE new.id IS NULL AND old.deleted_date IS NULL)
-            """
-        with connection.cursor() as cursor:
-            cursor.execute(sql)
+        start = datetime.now()
+        add_deleted_timestamps_for_missing_records(skipped_datasets)
         log_time(start, 'added deleted dates')
-        #connection.close()
     except Exception as e:
         logger = logging.getLogger(__name__)
         logger.error(e)
@@ -130,15 +116,34 @@ def update_website_resolvableobject():
                           WHERE website_resolvableobject.id = temp_updated.id""")
 
 
-def get_add_new_records_sql():
+def add_new_records():
     # Add new records as darwincoreobjects, may be faster to use https://stackoverflow.com/questions/19363481/select-rows-which-are-not-present-in-other-table
-    return """
+    with connection.cursor() as cursor:
+        cursor.execute("""
         INSERT INTO website_resolvableobject(id, data, type, dataset_id, created_date, parent_id)
         SELECT new.id, new.data, new.type, new.dataset_id, CURRENT_DATE, new.parent_id
         FROM populator_resolvableobjectmigration AS new
         LEFT JOIN website_resolvableobject AS old ON new.id = old.id
         WHERE old.id IS NULL
+        """)
+
+def add_deleted_timestamps_for_missing_records(skipped_datasets):
+    where_clause = 'AND old.dataset_id NOT IN %(dataset_ids)s' if skipped_datasets else ''
+    sql = f"""
+        UPDATE website_resolvableobject
+            SET deleted_date = CURRENT_DATE
+        WHERE id IN (
+            SELECT old.id
+            FROM website_resolvableobject AS old
+            LEFT JOIN populator_resolvableobjectmigration AS new ON new.id = old.id
+            WHERE 
+                new.id IS NULL 
+                AND old.deleted_date IS NULL 
+                {where_clause} 
+            )
         """
+    with connection.cursor() as cursor:
+        cursor.execute(sql, { 'dataset_ids': tuple(skipped_datasets) })
 
 # https://stackoverflow.com/questions/56733112/how-to-create-new-database-connection-in-django
 #connections.ensure_defaults('default')
