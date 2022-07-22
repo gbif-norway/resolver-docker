@@ -48,7 +48,7 @@ def merge_in_new_data(skipped_datasets=[], reset=False, step=5000):
 
         start = datetime.now()
         log_time(start, 'adding new records starting now')
-        add_new_records_sql()
+        add_new_records()
         log_time(start, 'added all new records')
 
         start = datetime.now()
@@ -116,7 +116,7 @@ def update_website_resolvableobject():
                           WHERE website_resolvableobject.id = temp_updated.id""")
 
 
-def add_new_records_sql():
+def add_new_records():
     # Add new records as darwincoreobjects, may be faster to use https://stackoverflow.com/questions/19363481/select-rows-which-are-not-present-in-other-table
     with connection.cursor() as cursor:
         cursor.execute("""
