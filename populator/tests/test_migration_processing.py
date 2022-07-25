@@ -97,37 +97,37 @@ class MigrationProcessingTest(TestCase):
             columns = [col[0] for col in cursor.description]
             self.assertEqual(dict(zip(columns, cursor.fetchone())), {'id': 'urn:uuid:2', 'occurrenceid':'urn:uuid:2', 'eventid': 'urn:uuid:1', 'heading': 'b', 'parent_id': None})
 
-    def test_sync_id_with_purl_othercatalognumbers_url(self):
+    def test_sync_id_with_purl_materialsampleid_url(self):
         with connection.cursor() as cursor:
-            cursor.execute("CREATE TABLE temp (id text, occurrenceid text, othercatalognumbers text)")
+            cursor.execute("CREATE TABLE temp (id text, occurrenceid text, materialsampleid text)")
             cursor.execute("INSERT INTO temp VALUES ('urn:uuid:1', 'urn:uuid:1', 'http://purl.org/nhmuio/id/82b6903f-7613-4aba-b83b-948d0df6391a')")
             self.assertTrue(migration_processing.sync_id_column('occurrenceid', 'occurrenceid'))
             cursor.execute('SELECT * FROM temp')
             columns = [col[0] for col in cursor.description]
-            self.assertEqual(dict(zip(columns, cursor.fetchone())), {'id': '82b6903f-7613-4aba-b83b-948d0df6391a', 'occurrenceid': 'urn:uuid:1', 'othercatalognumbers': '82b6903f-7613-4aba-b83b-948d0df6391a', 'parent_id': None})
+            self.assertEqual(dict(zip(columns, cursor.fetchone())), {'id': '82b6903f-7613-4aba-b83b-948d0df6391a', 'occurrenceid': 'urn:uuid:1', 'materialsampleid': '82b6903f-7613-4aba-b83b-948d0df6391a', 'parent_id': None})
 
-    def test_sync_id_with_purl_othercatalognumbers_uuid(self):
+    def test_sync_id_with_purl_materialsampleid_uuid(self):
         with connection.cursor() as cursor:
-            cursor.execute("CREATE TABLE temp (id text, occurrenceid text, othercatalognumbers text)")
+            cursor.execute("CREATE TABLE temp (id text, occurrenceid text, materialsampleid text)")
             cursor.execute("INSERT INTO temp VALUES ('urn:uuid:1', 'urn:uuid:1', 'b55cbe46-5f2f-4c07-8223-9d4b0c8ed811')")
             self.assertTrue(migration_processing.sync_id_column('occurrenceid', 'occurrenceid'))
             cursor.execute('SELECT * FROM temp')
             columns = [col[0] for col in cursor.description]
-            self.assertEqual(dict(zip(columns, cursor.fetchone())), {'id': 'b55cbe46-5f2f-4c07-8223-9d4b0c8ed811', 'occurrenceid': 'urn:uuid:1', 'othercatalognumbers': 'b55cbe46-5f2f-4c07-8223-9d4b0c8ed811', 'parent_id': None})
+            self.assertEqual(dict(zip(columns, cursor.fetchone())), {'id': 'b55cbe46-5f2f-4c07-8223-9d4b0c8ed811', 'occurrenceid': 'urn:uuid:1', 'materialsampleid': 'b55cbe46-5f2f-4c07-8223-9d4b0c8ed811', 'parent_id': None})
 
-    def test_sync_id_with_multiple_othercatalognumbers(self):
+    def test_sync_id_with_multiple_materialsampleid(self):
         with connection.cursor() as cursor:
-            cursor.execute("CREATE TABLE temp (id text, occurrenceid text, othercatalognumbers text)")
+            cursor.execute("CREATE TABLE temp (id text, occurrenceid text, materialsampleid text)")
             cursor.execute("INSERT INTO temp VALUES ('urn:uuid:1', 'urn:uuid:1', 'b55cbe46-5f2f-4c07-8223-9d4b0c8ed811|a55cbe46-5f2f-4c07-8223-9d4b0c8ed811')")
             self.assertTrue(migration_processing.sync_id_column('occurrenceid', 'occurrenceid'))
             cursor.execute('SELECT * FROM temp')
             columns = [col[0] for col in cursor.description]
             # Note that the second othercatalognumber gets deleted
-            self.assertEqual(dict(zip(columns, cursor.fetchone())), {'id': 'b55cbe46-5f2f-4c07-8223-9d4b0c8ed811', 'occurrenceid': 'urn:uuid:1', 'othercatalognumbers': 'b55cbe46-5f2f-4c07-8223-9d4b0c8ed811', 'parent_id': None})
+            self.assertEqual(dict(zip(columns, cursor.fetchone())), {'id': 'b55cbe46-5f2f-4c07-8223-9d4b0c8ed811', 'occurrenceid': 'urn:uuid:1', 'materialsampleid': 'b55cbe46-5f2f-4c07-8223-9d4b0c8ed811', 'parent_id': None})
 
-    def test_sync_id_with_duplicate_othercatalognumbers(self):
+    def test_sync_id_with_duplicate_materialsampleid(self):
         with connection.cursor() as cursor:
-            cursor.execute("CREATE TABLE temp (id text, occurrenceid text, othercatalognumbers text)")
+            cursor.execute("CREATE TABLE temp (id text, occurrenceid text, materialsampleid text)")
             cursor.execute("INSERT INTO temp VALUES ('urn:uuid:1', 'urn:uuid:1', 'b55cbe46-5f2f-4c07-8223-9d4b0c8ed811')")
             cursor.execute("INSERT INTO temp VALUES ('urn:uuid:2', 'urn:uuid:2', 'b55cbe46-5f2f-4c07-8223-9d4b0c8ed811')")
             cursor.execute("INSERT INTO temp VALUES ('urn:uuid:3', 'urn:uuid:3', '3136D80A-E74C-11E4-A2DC-00155D012A60')")
@@ -140,9 +140,9 @@ class MigrationProcessingTest(TestCase):
                               ('urn:uuid:3', 'urn:uuid:3', '', None), ('urn:uuid:4', 'urn:uuid:4', '', None),
                               ('urn:uuid:5', 'urn:uuid:5', '', None), ('urn:uuid:6', 'urn:uuid:6', '', None)], cursor.fetchall())
 
-    def test_sync_id_with_invalid_othercatalognumbers(self):
+    def test_sync_id_with_invalid_materialsampleid(self):
         with connection.cursor() as cursor:
-            cursor.execute("CREATE TABLE temp (id text, occurrenceid text, othercatalognumbers text)")
+            cursor.execute("CREATE TABLE temp (id text, occurrenceid text, materialsampleid text)")
             cursor.execute("INSERT INTO temp VALUES ('urn:uuid:1', 'urn:uuid:1', 'abc')")
             self.assertTrue(migration_processing.sync_id_column('occurrenceid', 'occurrenceid'))
             cursor.execute('SELECT * FROM temp')
