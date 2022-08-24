@@ -34,7 +34,7 @@ class ResolvableObjectSerializer(serializers.ModelSerializer):
         obj['@context'] = {'dc': 'http://purl.org/dc/elements/1.1/', 'dwc': 'http://rs.tdwg.org/dwc/terms/', 'owl': 'https://www.w3.org/tr/owl-ref/', 'rdf': 'https://www.w3.org/tr/rdf-schema/'}
 
         # Preserved specimens are material samples, so only show relevant information for these records
-        if 'basisofrecord' in items and items['basisofrecord'].lower() == 'preservedspecimen' or items['basisofrecord'].lower() == 'materialsample':
+        if 'basisofrecord' in items and (items['basisofrecord'].lower() == 'preservedspecimen' or items['basisofrecord'].lower() == 'materialsample'):
             obj['rdf:type'] = 'materialsample'
             allowed_fields = ['scientificname', 'catalognumber', 'basisofrecord']
             for field in allowed_fields:
