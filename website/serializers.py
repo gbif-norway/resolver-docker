@@ -29,32 +29,47 @@ class ResolvableObjectSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         ret = super().to_representation(instance)
-        prefixed_object = {'dwc:%s' % key: value for key, value in ret['data'].items()}
-        prefixed_object['data-type'] = ret['type']
+        items = ret['data']
+        obj = {'@id': f'http://purl.org/gbifnorway/id/{instance.id}'}
+        obj['@context'] = {'dc': 'http://purl.org/dc/elements/1.1/', 'dwc': 'http://rs.tdwg.org/dwc/terms/', 'owl': 'https://www.w3.org/tr/owl-ref/', 'rdf': 'https://www.w3.org/tr/rdf-schema/'}
+
+        # Preserved specimens are material samples, so only show relevant information for these records
+        if 'basisofrecord' in items and items['basisofrecord'].lower() == 'preservedspecimen' or items['basisofrecord'].lower() == 'materialsample':
+            obj['rdf:type'] = 'materialsample'
+            allowed_fields = ['scientificname', 'catalognumber', 'basisofrecord']
+            for field in allowed_fields:
+                if field in items:
+                    obj[f'dwc:{field}'] = items[field]
+        elif 'basisofrecord' in items and items['basisofrecord'].lower() == '':
+            pass
+        else:
+            obj = {f'dwc:{key}': value for key, value in items.items()}
+            if 'dwc:id' in obj:
+                obj['owl:sameas'] = obj['dwc:id']
+                del obj['dwc:id']
+            obj['rdf:type'] = ret['type']
+
+        if 'dwc:parent_id' in obj:
+            obj['dwc:relatedResourceID'] = obj['dwc:parent_id']
+            del obj['dwc:parent_id']
+            if ret['type'] == 'measurementorfact':
+                obj['dwc:relationshipOfResource'] = 'measurement of'
+
+        if 'dwc:sameas' in obj:
+            if 'rdf:type' in obj and obj['rdf:type'] == 'dataset':
+                obj['owl:sameas'] = obj['dwc:sameas']
+            del obj['dwc:sameas']
+
+        if 'dwc:label' in obj:
+            obj['rdfs:label'] = obj['dwc:label']
+            del obj['dwc:label']
+            obj['@context']['rdfs'] = 'https://www.w3.org/tr/rdf-schema/'
+
+        # Internal information
         dataset = ret['dataset']
-        prefixed_object['dataset'] = {'label': dataset['label'], 'id': dataset['id'], 'type': dataset['type']}
-        prefixed_object['deleted_date'] = ret['deleted_date']
-        prefixed_object['@context'] = {'dc': 'http://purl.org/dc/elements/1.1/', 'dwc': 'http://rs.tdwg.org/dwc/terms/', 'owl': 'https://www.w3.org/tr/owl-ref/'}
+        obj['dc:isPartOf'] = {'label': dataset['label'], 'id': f"https://gbif.org/dataset/{dataset['id']}", 'gbif-dataset-type': dataset['type']}
+        if instance.deleted_date:
+            obj['dc:dateRemoved'] = ret['deleted_date']
 
-        if 'dwc:id' in prefixed_object:
-            prefixed_object['@id'] = 'http://purl.org/gbifnorway/id/%s' % prefixed_object['dwc:id']
-            prefixed_object['owl:sameas'] = prefixed_object['dwc:id']
-            del prefixed_object['dwc:id']
-
-        if 'dwc:sameas' in prefixed_object:
-            if 'dwc:type' in prefixed_object and prefixed_object['dwc:type'] == 'dataset':
-                prefixed_object['owl:sameas'] = prefixed_object['dwc:sameas']
-            del prefixed_object['dwc:sameas']
-
-        if 'dwc:type' in prefixed_object:
-            prefixed_object['rdf:type'] = prefixed_object['dwc:type']
-            del prefixed_object['dwc:type']
-            prefixed_object['@context']['rdf'] = 'https://www.w3.org/tr/rdf-schema/'
-
-        if 'dwc:label' in prefixed_object:
-            prefixed_object['rdfs:label'] = prefixed_object['dwc:label']
-            del prefixed_object['dwc:label']
-            prefixed_object['@context']['rdfs'] = 'https://www.w3.org/tr/rdf-schema/'
-
-        return prefixed_object
+        return obj
 
