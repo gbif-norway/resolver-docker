@@ -1,0 +1,22 @@
+version: '3'
+
+services:
+  web:
+    restart: always
+    build: .
+    command: python manage.py runserver 0.0.0.0:80
+    #command: gunicorn resolver.wsgi:application --bind 0.0.0.0:80 --reload
+    #command: python manage.py test
+    stdin_open: true
+    tty: true
+    expose: 
+      - 80
+    env_file:
+      - ./prod.env
+    volumes:
+      - .:/code
+
+networks:
+  default:
+    external:
+      name: nginx-proxy
