@@ -35,7 +35,7 @@ class ResolvableObjectSerializer(serializers.ModelSerializer):
 
         # Preserved specimens are material samples, so only show relevant information for these records
         if 'basisofrecord' in items and (items['basisofrecord'].lower() == 'preservedspecimen' or items['basisofrecord'].lower() == 'materialsample'):
-            obj['rdf:type'] = 'materialsample'
+            obj['rdf:type'] = 'rs.tdwg.org/materialsample'
             allowed_fields = ['scientificname', 'catalognumber', 'basisofrecord']
             for field in allowed_fields:
                 if field in items:
