@@ -215,6 +215,13 @@ class ResolverViewTests(APITestCase):
         response_string = self._simple_request_dataset('application/rdf+xml')
         self.assertTrue('<owl:sameas>https://doi.org/10.12345/abcdef</owl:sameas>' in response_string)
 
+    def test_case_insensitive_id_resolving(self):
+        id = 'ABC'
+        ResolvableObject.objects.create(id='abc', dataset=self.dataset, data={'id': id.lower(), 'basisOfRecord': 'preservedspecimen'})
+        url = reverse('resolvableobject-detail', [id])
+        response = self.client.get(url, HTTP_ACCEPT='application/ld+json')
+        self.assertTrue(response.status_code == 200)
+
     def _simple_request_occurrence(self, http_accept):
         id = 'urn:uuid:5c0884ce-608c-4716-ba0e-cb389dca5580'
         ResolvableObject.objects.create(id=id, dataset=self.dataset, data={'id': id, 'basisOfRecord': 'preservedspecimen'})

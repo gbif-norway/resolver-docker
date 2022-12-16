@@ -117,6 +117,9 @@ def sync_id_column(id_column, core_id):
                 cursor.execute("UPDATE temp SET materialsampleid = '' WHERE materialsampleid IN (" + duplicates + ")")
                 # Finally, put materialsampleid in the id column if they look like they are valid
                 cursor.execute("UPDATE temp SET id = materialsampleid WHERE materialsampleid ~ '[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12}'")
+        with connection.cursor() as cursor:  # Force all IDs to lowercase
+            cursor.execute("UPDATE temp SET id = LOWER(id)")
+            cursor.execute("UPDATE temp SET parent_id = LOWER(parent_id)")
     except p.errors.UndefinedColumn:
         logger = logging.getLogger(__name__)
         logger.error('Undefined column')
