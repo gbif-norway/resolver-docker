@@ -11,7 +11,7 @@ services:
   web:
     image: resolver-populate-test
     build: .
-    command: sh -c "sleep 5 && python manage.py test"
+    command: sh -c "sleep 5 && python manage.py migrate &&  python manage.py test"
     environment:
       - SQL_ENGINE=django.db.backends.postgresql
       - SQL_DATABASE=postgres
