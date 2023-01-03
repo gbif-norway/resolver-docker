@@ -26,22 +26,22 @@ class MigrationProcessingTest(TestCase):
         self.assertEqual(ResolvableObjectMigration.objects.filter(type='measurementorfact').count(), 10)
         self.assertEqual(ResolvableObjectMigration.objects.filter(type='occurrence').count(), 1)
 
-    def test_import_dwca_links_mof_parent_ids_to_occurrences(self):
+    def test_import_dwca_links_mof_parents_to_occurrences(self):
         migration_processing.import_dwca('my_dataset_id', '/code/populator/tests/mock_data/dwca_measurementorfact.zip')
         mof = ResolvableObjectMigration.objects.filter(type='measurementorfact').first()
         self.assertEqual(mof.id, '2335276d-7d77-47be-8e33-91b6833b057b')  # Make sure it hasn't overwritten it with the core ID
         occ = ResolvableObjectMigration.objects.filter(type='occurrence').first()
-        self.assertEqual(mof.parent_id, occ.id)  # This is the core ID, an occurrenceID in this case
+        self.assertEqual(mof.parent, occ.id)  # This is the core ID, an occurrenceID in this case
 
-    def test_import_dwca_links_mof_parent_ids_to_events(self):
+    def test_import_dwca_links_mof_parents_to_events(self):
         migration_processing.import_dwca('my_dataset_id', '/code/populator/tests/mock_data/dwca_measurementorfact-events.zip')
         mof = ResolvableObjectMigration.objects.filter(type='measurementorfact').first()
         self.assertEqual(mof.id, '2335276d-7d77-47be-8e33-91b6833b057b')
         event = ResolvableObjectMigration.objects.filter(type='event').first()
-        self.assertEqual(mof.parent_id, event.id)
+        self.assertEqual(mof.parent, event.id)
         occ = ResolvableObjectMigration.objects.filter(type='occurrence').first()
-        self.assertNotEqual(occ.id, occ.parent_id)
-        self.assertEqual(occ.parent_id, event.id)
+        self.assertNotEqual(occ.id, occ.parent)
+        self.assertEqual(occ.parent, event.id)
 
     def test_blank_fields_not_imported(self):
         migration_processing.import_dwca('my_dataset_id', '/code/populator/tests/mock_data/dwc_archive_bad_rows.zip')
@@ -86,7 +86,7 @@ class MigrationProcessingTest(TestCase):
             self.assertTrue(migration_processing.sync_id_column('eventid', 'eventid'))
             cursor.execute('SELECT * FROM temp')
             columns = [col[0] for col in cursor.description]
-            self.assertEqual(dict(zip(columns, cursor.fetchone())), {'eventid': 'urn:uuid:ba128c35-5e8f-408f-8597-00b1972dace1', 'id': 'urn:uuid:ba128c35-5e8f-408f-8597-00b1972dace1', 'heading2': 'a', 'heading3': 'b', 'parent_id': None})
+            self.assertEqual(dict(zip(columns, cursor.fetchone())), {'eventid': 'urn:uuid:ba128c35-5e8f-408f-8597-00b1972dace1', 'id': 'urn:uuid:ba128c35-5e8f-408f-8597-00b1972dace1', 'heading2': 'a', 'heading3': 'b', 'parent': None})
 
     def test_sync_id_column_replace_id_col(self):
         with connection.cursor() as cursor:
@@ -95,7 +95,7 @@ class MigrationProcessingTest(TestCase):
             self.assertTrue(migration_processing.sync_id_column('occurrenceid', 'occurrenceid'))
             cursor.execute('SELECT * FROM temp')
             columns = [col[0] for col in cursor.description]
-            self.assertEqual(dict(zip(columns, cursor.fetchone())), {'id': 'urn:uuid:2', 'occurrenceid':'urn:uuid:2', 'eventid': 'urn:uuid:1', 'heading': 'b', 'parent_id': None})
+            self.assertEqual(dict(zip(columns, cursor.fetchone())), {'id': 'urn:uuid:2', 'occurrenceid':'urn:uuid:2', 'eventid': 'urn:uuid:1', 'heading': 'b', 'parent': None})
 
     def test_sync_id_with_purl_materialsampleid_url(self):
         with connection.cursor() as cursor:
@@ -104,7 +104,7 @@ class MigrationProcessingTest(TestCase):
             self.assertTrue(migration_processing.sync_id_column('occurrenceid', 'occurrenceid'))
             cursor.execute('SELECT * FROM temp')
             columns = [col[0] for col in cursor.description]
-            self.assertEqual(dict(zip(columns, cursor.fetchone())), {'id': '82b6903f-7613-4aba-b83b-948d0df6391a', 'occurrenceid': 'urn:uuid:1', 'materialsampleid': '82b6903f-7613-4aba-b83b-948d0df6391a', 'parent_id': None})
+            self.assertEqual(dict(zip(columns, cursor.fetchone())), {'id': '82b6903f-7613-4aba-b83b-948d0df6391a', 'occurrenceid': 'urn:uuid:1', 'materialsampleid': '82b6903f-7613-4aba-b83b-948d0df6391a', 'parent': None})
 
     def test_sync_id_with_purl_materialsampleid_uuid(self):
         with connection.cursor() as cursor:
@@ -113,7 +113,7 @@ class MigrationProcessingTest(TestCase):
             self.assertTrue(migration_processing.sync_id_column('occurrenceid', 'occurrenceid'))
             cursor.execute('SELECT * FROM temp')
             columns = [col[0] for col in cursor.description]
-            self.assertEqual(dict(zip(columns, cursor.fetchone())), {'id': 'b55cbe46-5f2f-4c07-8223-9d4b0c8ed811', 'occurrenceid': 'urn:uuid:1', 'materialsampleid': 'b55cbe46-5f2f-4c07-8223-9d4b0c8ed811', 'parent_id': None})
+            self.assertEqual(dict(zip(columns, cursor.fetchone())), {'id': 'b55cbe46-5f2f-4c07-8223-9d4b0c8ed811', 'occurrenceid': 'urn:uuid:1', 'materialsampleid': 'b55cbe46-5f2f-4c07-8223-9d4b0c8ed811', 'parent': None})
 
     def test_sync_id_with_multiple_materialsampleid(self):
         with connection.cursor() as cursor:
@@ -123,7 +123,7 @@ class MigrationProcessingTest(TestCase):
             cursor.execute('SELECT * FROM temp')
             columns = [col[0] for col in cursor.description]
             # Note that the second othercatalognumber gets deleted
-            self.assertEqual(dict(zip(columns, cursor.fetchone())), {'id': 'b55cbe46-5f2f-4c07-8223-9d4b0c8ed811', 'occurrenceid': 'urn:uuid:1', 'materialsampleid': 'b55cbe46-5f2f-4c07-8223-9d4b0c8ed811', 'parent_id': None})
+            self.assertEqual(dict(zip(columns, cursor.fetchone())), {'id': 'b55cbe46-5f2f-4c07-8223-9d4b0c8ed811', 'occurrenceid': 'urn:uuid:1', 'materialsampleid': 'b55cbe46-5f2f-4c07-8223-9d4b0c8ed811', 'parent': None})
 
     def test_sync_id_with_duplicate_materialsampleid(self):
         with connection.cursor() as cursor:
@@ -158,30 +158,30 @@ class MigrationProcessingTest(TestCase):
 
     def test_purlfriendly_id_with_urn_prefix(self):
         with connection.cursor() as cursor:
-            cursor.execute("CREATE TABLE temp (id text, parent_id text)")
+            cursor.execute("CREATE TABLE temp (id text, parent text)")
             cursor.execute("INSERT INTO temp VALUES ('urn:uuid:1', '')")
             migration_processing.purlfriendly_id_columns()
             cursor.execute('SELECT * FROM temp')
             columns = [col[0] for col in cursor.description]
-            self.assertEqual(dict(zip(columns, cursor.fetchone())), {'id': '1', 'parent_id': ''})
+            self.assertEqual(dict(zip(columns, cursor.fetchone())), {'id': '1', 'parent': ''})
 
     def test_purlfriendly_id_with_url(self):
         with connection.cursor() as cursor:
-            cursor.execute("CREATE TABLE temp (id text, parent_id text)")
+            cursor.execute("CREATE TABLE temp (id text, parent text)")
             cursor.execute("INSERT INTO temp VALUES ('', 'http://purl.org/nhmuio/id/1')")
             migration_processing.purlfriendly_id_columns()
             cursor.execute('SELECT * FROM temp')
             columns = [col[0] for col in cursor.description]
-            self.assertEqual(dict(zip(columns, cursor.fetchone())), {'id': '', 'parent_id': '1'})
+            self.assertEqual(dict(zip(columns, cursor.fetchone())), {'id': '', 'parent': '1'})
 
     def test_sync_occurrence_id_column_with_event_core(self):
         with connection.cursor() as cursor:
             cursor.execute("CREATE TABLE temp (id text, occurrenceid text, heading2 text, heading3 text)")
             cursor.execute("INSERT INTO temp VALUES ('urn:uuid:1', 'urn:uuid:2', 'a', 'b')")
-            self.assertTrue(migration_processing.sync_id_column('occurrenceid', 'eventid'))  # Should keep eventid as parent_id
+            self.assertTrue(migration_processing.sync_id_column('occurrenceid', 'eventid'))  # Should keep eventid as parent
             cursor.execute('SELECT * FROM temp')
             columns = [col[0] for col in cursor.description]
-            self.assertEqual(dict(zip(columns, cursor.fetchone())), {'id': 'urn:uuid:2','occurrenceid':'urn:uuid:2', 'parent_id': 'urn:uuid:1', 'heading2': 'a', 'heading3': 'b'})
+            self.assertEqual(dict(zip(columns, cursor.fetchone())), {'id': 'urn:uuid:2','occurrenceid':'urn:uuid:2', 'parent': 'urn:uuid:1', 'heading2': 'a', 'heading3': 'b'})
 
     def test_sync_id_column_with_no_coreid_col_returns_false(self):
         with connection.cursor() as cursor:
@@ -191,7 +191,7 @@ class MigrationProcessingTest(TestCase):
 
     def test_add_dataset_id(self):
         with connection.cursor() as cursor:
-            cursor.execute('CREATE TABLE temp (id text, occurrenceid text, parent_id text, "order" text, heading3 text)')
+            cursor.execute('CREATE TABLE temp (id text, occurrenceid text, parent text, "order" text, heading3 text)')
             cursor.execute("INSERT INTO temp VALUES ('a', 'b', 'a', 'c', 'd')")
             cursor.execute("INSERT INTO temp VALUES ('e', 'f', 'e', 'g', 'h')")
             migration_processing.add_dataset_id('2b52369a-7fe0-4d28-b88c-c882c0ce71d8')
@@ -201,7 +201,7 @@ class MigrationProcessingTest(TestCase):
 
     def test_add_dataset_id_with_preexisting_dataset_id(self):
         with connection.cursor() as cursor:
-            cursor.execute('CREATE TABLE temp (id text, occurrenceid text, parent_id text, "order" text, datasetid text)')
+            cursor.execute('CREATE TABLE temp (id text, occurrenceid text, parent text, "order" text, datasetid text)')
             cursor.execute("INSERT INTO temp VALUES ('a', 'b', 'a', 'c', '2b52369a-7fe0-4d28-b88c-c882c0ce71d8')")
             cursor.execute("INSERT INTO temp VALUES ('e', 'f', 'e', 'g', '2b52369a-7fe0-4d28-b88c-c882c0ce71d8')")
             migration_processing.add_dataset_id('2b52369a-7fe0-4d28-b88c-c882c0ce71d8')
@@ -211,10 +211,10 @@ class MigrationProcessingTest(TestCase):
 
     def test_insert_json_into_migration_table(self):
         with connection.cursor() as cursor:
-            cursor.execute('CREATE TABLE temp (id text, occurrenceid text, parent_id text, "order" text, heading3 text)')
+            cursor.execute('CREATE TABLE temp (id text, occurrenceid text, parent text, "order" text, heading3 text)')
             cursor.execute("INSERT INTO temp VALUES ('ba128c35-5e8f-408f-8597-00b1972dace1', 'ba128c35-5e8f-408f-8597-00b1972dace1', NULL, 'a', 'b')")
         migration_processing.insert_json_into_migration_table('dataset_id', 'occurrence')
-        expected = {'id': 'ba128c35-5e8f-408f-8597-00b1972dace1', 'parent_id': None, 'type': 'occurrence',
+        expected = {'id': 'ba128c35-5e8f-408f-8597-00b1972dace1', 'parent': None, 'type': 'occurrence',
                     'data': {'id': 'ba128c35-5e8f-408f-8597-00b1972dace1',
                              'occurrenceid': 'ba128c35-5e8f-408f-8597-00b1972dace1',
                              'order': 'a', 'heading3': 'b'},
@@ -223,56 +223,56 @@ class MigrationProcessingTest(TestCase):
 
     def test_insert_json_into_migration_table_multiple(self):
         with connection.cursor() as cursor:
-            cursor.execute('CREATE TABLE temp (id text, parent_id text, scientificname text)')
+            cursor.execute('CREATE TABLE temp (id text, parent text, scientificname text)')
             cursor.execute("INSERT INTO temp VALUES ('a', NULL, 'eudyptes')")
             cursor.execute("INSERT INTO temp VALUES ('b', NULL, 'another')")
         migration_processing.insert_json_into_migration_table('dataset_id', 'occurrence')
-        expected = [{'id': 'a', 'parent_id': None, 'data': {'id': 'a', 'scientificname': 'eudyptes'}, 'type': 'occurrence', 'dataset_id': 'dataset_id'},
-                    {'id': 'b', 'parent_id': None, 'data': {'id': 'b', 'scientificname': 'another'}, 'type': 'occurrence', 'dataset_id': 'dataset_id'}]
+        expected = [{'id': 'a', 'parent': None, 'data': {'id': 'a', 'scientificname': 'eudyptes'}, 'type': 'occurrence', 'dataset_id': 'dataset_id'},
+                    {'id': 'b', 'parent': None, 'data': {'id': 'b', 'scientificname': 'another'}, 'type': 'occurrence', 'dataset_id': 'dataset_id'}]
         self.assertEqual([model_to_dict(x) for x in ResolvableObjectMigration.objects.all()], expected)
 
     def test_insert_json_into_migration_table_nulls(self):
         with connection.cursor() as cursor:
-            cursor.execute('CREATE TABLE temp (id text, parent_id text, scientificname text)')
+            cursor.execute('CREATE TABLE temp (id text, parent text, scientificname text)')
             cursor.execute("INSERT INTO temp VALUES ('a', NULL, NULL)")
             cursor.execute("INSERT INTO temp VALUES ('b', NULL, 'another')")
         migration_processing.insert_json_into_migration_table('dataset_id', 'occurrence')
-        expected = [{'id': 'a', 'parent_id': None, 'data': {'id': 'a'}, 'type': 'occurrence', 'dataset_id': 'dataset_id'},
-                    {'id': 'b', 'parent_id': None, 'data': {'id': 'b', 'scientificname': 'another'}, 'type': 'occurrence', 'dataset_id': 'dataset_id'}]
+        expected = [{'id': 'a', 'parent': None, 'data': {'id': 'a'}, 'type': 'occurrence', 'dataset_id': 'dataset_id'},
+                    {'id': 'b', 'parent': None, 'data': {'id': 'b', 'scientificname': 'another'}, 'type': 'occurrence', 'dataset_id': 'dataset_id'}]
         self.assertEqual([model_to_dict(x) for x in ResolvableObjectMigration.objects.all()], expected)
 
     def test_insert_with_previous_dataset(self):
         with connection.cursor() as cursor:
-            cursor.execute('CREATE TABLE temp (id text, parent_id text, sname text)')
+            cursor.execute('CREATE TABLE temp (id text, parent text, sname text)')
             cursor.execute("INSERT INTO temp VALUES ('a', NULL, 'a-name')")
             cursor.execute("INSERT INTO temp VALUES ('b', NULL, 'b-name')")
         migration_processing.insert_json_into_migration_table('a_d_id', 'occurrence')
 
         with connection.cursor() as cursor:
             cursor.execute('DROP TABLE temp')
-            cursor.execute('CREATE TABLE temp (id text, parent_id text, sname text)')
+            cursor.execute('CREATE TABLE temp (id text, parent text, sname text)')
             cursor.execute("INSERT INTO temp VALUES ('c', NULL, 'c-name')")
             cursor.execute("INSERT INTO temp VALUES ('d', NULL, 'd-name')")
         migration_processing.insert_json_into_migration_table('b_d_id', 'occurrence')
         expected = [
-            {'id': 'a', 'parent_id': None, 'data': {'id': 'a', 'sname': 'a-name'}, 'type': 'occurrence', 'dataset_id': 'a_d_id'},
-            {'id': 'b', 'parent_id': None, 'data': {'id': 'b', 'sname': 'b-name'}, 'type': 'occurrence', 'dataset_id': 'a_d_id'},
-            {'id': 'c', 'parent_id': None, 'data': {'id': 'c', 'sname': 'c-name'}, 'type': 'occurrence', 'dataset_id': 'b_d_id'},
-            {'id': 'd', 'parent_id': None, 'data': {'id': 'd', 'sname': 'd-name'}, 'type': 'occurrence', 'dataset_id': 'b_d_id'},
+            {'id': 'a', 'parent': None, 'data': {'id': 'a', 'sname': 'a-name'}, 'type': 'occurrence', 'dataset_id': 'a_d_id'},
+            {'id': 'b', 'parent': None, 'data': {'id': 'b', 'sname': 'b-name'}, 'type': 'occurrence', 'dataset_id': 'a_d_id'},
+            {'id': 'c', 'parent': None, 'data': {'id': 'c', 'sname': 'c-name'}, 'type': 'occurrence', 'dataset_id': 'b_d_id'},
+            {'id': 'd', 'parent': None, 'data': {'id': 'd', 'sname': 'd-name'}, 'type': 'occurrence', 'dataset_id': 'b_d_id'},
         ]
         result = [model_to_dict(x) for x in ResolvableObjectMigration.objects.all()]
         self.assertEqual(sorted(result, key=lambda x: x['id']), expected)
 
     def test_remove_duplicates(self):
         with connection.cursor() as cursor:
-            cursor.execute('CREATE TABLE temp (id text, parent_id text, sname text)')
+            cursor.execute('CREATE TABLE temp (id text, parent text, sname text)')
             cursor.execute("INSERT INTO temp VALUES ('x', NULL, 'a-name')")
             cursor.execute("INSERT INTO temp VALUES ('b', NULL, 'b-name')")
         migration_processing.insert_json_into_migration_table('a_d_id', 'occurrence')
 
         with connection.cursor() as cursor:
             cursor.execute('DROP TABLE temp')
-            cursor.execute('CREATE TABLE temp (id text, parent_id text, sname text)')
+            cursor.execute('CREATE TABLE temp (id text, parent text, sname text)')
             cursor.execute("INSERT INTO temp VALUES ('x', NULL, 'c-name')")
             cursor.execute("INSERT INTO temp VALUES ('d', NULL, 'd-name')")
         migration_processing.remove_duplicates()
@@ -283,22 +283,22 @@ class MigrationProcessingTest(TestCase):
 
     def test_insert_with_previous_dataset_with_duplicates_keeps_first_result(self):
         with connection.cursor() as cursor:
-            cursor.execute('CREATE TABLE temp (id text, parent_id text, sname text)')
+            cursor.execute('CREATE TABLE temp (id text, parent text, sname text)')
             cursor.execute("INSERT INTO temp VALUES ('x', NULL, 'a-name')")
             cursor.execute("INSERT INTO temp VALUES ('b', NULL, 'b-name')")
         migration_processing.insert_json_into_migration_table('a_d_id', 'occurrence')
 
         with connection.cursor() as cursor:
             cursor.execute('DROP TABLE temp')
-            cursor.execute('CREATE TABLE temp (id text, parent_id text, sname text)')
+            cursor.execute('CREATE TABLE temp (id text, parent text, sname text)')
             cursor.execute("INSERT INTO temp VALUES ('x', NULL, 'c-name')")
             cursor.execute("INSERT INTO temp VALUES ('d', NULL, 'd-name')")
         migration_processing.remove_duplicates()
         migration_processing.insert_json_into_migration_table('b_d_id', 'occurrence')
         expected = [
-            {'id': 'b', 'parent_id': None, 'data': {'id': 'b', 'sname': 'b-name'}, 'type': 'occurrence', 'dataset_id': 'a_d_id'},
-            {'id': 'x', 'parent_id': None, 'data': {'id': 'x', 'sname': 'a-name'}, 'type': 'occurrence', 'dataset_id': 'a_d_id'},
-            {'id': 'd', 'parent_id': None, 'data': {'id': 'd', 'sname': 'd-name'}, 'type': 'occurrence', 'dataset_id': 'b_d_id'},
+            {'id': 'b', 'parent': None, 'data': {'id': 'b', 'sname': 'b-name'}, 'type': 'occurrence', 'dataset_id': 'a_d_id'},
+            {'id': 'x', 'parent': None, 'data': {'id': 'x', 'sname': 'a-name'}, 'type': 'occurrence', 'dataset_id': 'a_d_id'},
+            {'id': 'd', 'parent': None, 'data': {'id': 'd', 'sname': 'd-name'}, 'type': 'occurrence', 'dataset_id': 'b_d_id'},
         ]
         results = [model_to_dict(x) for x in ResolvableObjectMigration.objects.all()]
         self.assertEqual(results, expected)
@@ -307,14 +307,14 @@ class MigrationProcessingTest(TestCase):
         file = '/code/test_duplicates.txt'
         create_duplicates_file(file)
         with connection.cursor() as cursor:
-            cursor.execute('CREATE TABLE temp (id text, parent_id text, sname text)')
+            cursor.execute('CREATE TABLE temp (id text, parent text, sname text)')
             cursor.execute("INSERT INTO temp VALUES ('x', NULL, 'a-name')")
             cursor.execute("INSERT INTO temp VALUES ('b', NULL, 'b-name')")
         migration_processing.insert_json_into_migration_table('a_d_id', 'occurrence')
 
         with connection.cursor() as cursor:
             cursor.execute('DROP TABLE temp')
-            cursor.execute('CREATE TABLE temp (id text, parent_id text, sname text)')
+            cursor.execute('CREATE TABLE temp (id text, parent text, sname text)')
             cursor.execute("INSERT INTO temp VALUES ('x', NULL, 'c-name')")
             cursor.execute("INSERT INTO temp VALUES ('d', NULL, 'd-name')")
         migration_processing.record_duplicates('b_d_id', 'occurrence', file)
@@ -324,7 +324,7 @@ class MigrationProcessingTest(TestCase):
 
         self.assertEqual(len(content), 2)  # Including header
         result = [line.rstrip('\n') for line in content]
-        expected = ['x', '{"id":"x","parent_id":null,"sname":"c-name"}', 'b_d_id', 'occurrence', '{"id": "x", "sname": "a-name"}', 'a_d_id']
+        expected = ['x', '{"id":"x","parent":null,"sname":"c-name"}', 'b_d_id', 'occurrence', '{"id": "x", "sname": "a-name"}', 'a_d_id']
         self.assertEqual(result[1].split('|'), expected)
 
     def test_record_duplicates_works_with_weird_char_encoding(self):

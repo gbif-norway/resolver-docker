@@ -99,12 +99,12 @@ def get_id(file_type):
 def sync_id_column(id_column, core_id):
     try:
         with connection.cursor() as cursor:
-            cursor.execute("ALTER TABLE temp ADD COLUMN parent_id text")
+            cursor.execute("ALTER TABLE temp ADD COLUMN parent text")
             cursor.execute("SELECT COUNT(*) FROM information_schema.columns WHERE table_name='temp' and column_name='id';")
             if cursor.fetchone()[0] == 0:
                 cursor.execute("ALTER TABLE temp ADD COLUMN id text")
             elif core_id and core_id != id_column:
-                cursor.execute("UPDATE temp SET parent_id = id")  # So we do not lose the core ids
+                cursor.execute("UPDATE temp SET parent = id")  # So we do not lose the core ids
             cursor.execute("UPDATE temp SET id = %s" % id_column)
         with connection.cursor() as cursor:  # Some NHM datasets have purl IDs in materialsampleid
             cursor.execute("SELECT COUNT(*) FROM information_schema.columns WHERE table_name='temp' and column_name='materialsampleid';")
@@ -119,7 +119,7 @@ def sync_id_column(id_column, core_id):
                 cursor.execute("UPDATE temp SET id = materialsampleid WHERE materialsampleid ~ '[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12}'")
         with connection.cursor() as cursor:  # Force all IDs to lowercase
             cursor.execute("UPDATE temp SET id = LOWER(id)")
-            cursor.execute("UPDATE temp SET parent_id = LOWER(parent_id)")
+            cursor.execute("UPDATE temp SET parent = LOWER(parent)")
     except p.errors.UndefinedColumn:
         logger = logging.getLogger(__name__)
         logger.error('Undefined column')
@@ -134,10 +134,10 @@ def sync_id_column(id_column, core_id):
 def purlfriendly_id_columns():  # PURL breaks when there is a ":" in the URL
     with connection.cursor() as cursor:
         cursor.execute("UPDATE temp SET id = REPLACE(id, 'urn:uuid:', '')")
-        cursor.execute("UPDATE temp SET parent_id = REPLACE(parent_id, 'urn:uuid:', '')")
+        cursor.execute("UPDATE temp SET parent = REPLACE(parent, 'urn:uuid:', '')")
     with connection.cursor() as cursor:
         cursor.execute("UPDATE temp SET id = REPLACE(id, 'http://purl.org/nhmuio/id/', '')")
-        cursor.execute("UPDATE temp SET parent_id = REPLACE(parent_id, 'http://purl.org/nhmuio/id/', '')")
+        cursor.execute("UPDATE temp SET parent = REPLACE(parent, 'http://purl.org/nhmuio/id/', '')")
 
 
 def add_dataset_id(dataset_id):
@@ -189,9 +189,9 @@ def insert_json_into_migration_table(dataset_id, core_type, step=300000):
     for i in range(0, _max, step):
         logger = logging.getLogger(__name__)
         logger.info('Migration loop: {}'.format(i))
-        make_json_sql = (f"SELECT temp.id, json_strip_nulls(row_to_json(temp)), '{dataset_id}', '{core_type}', temp.parent_id"
+        make_json_sql = (f"SELECT temp.id, json_strip_nulls(row_to_json(temp)), '{dataset_id}', '{core_type}', temp.parent"
                          f" FROM temp ORDER BY temp.id LIMIT {step} OFFSET {i};")
-        insert_sql = 'INSERT INTO populator_resolvableobjectmigration(id, data, dataset_id, type, parent_id) ' + make_json_sql
+        insert_sql = 'INSERT INTO populator_resolvableobjectmigration(id, data, dataset_id, type, parent) ' + make_json_sql
         with connection.cursor() as cursor:
             cursor.execute(insert_sql)
             count += cursor.rowcount
