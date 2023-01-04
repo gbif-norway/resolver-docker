@@ -49,9 +49,9 @@ class ResolvableObjectSerializer(serializers.ModelSerializer):
                 del obj['dwc:id']
             obj['rdf:type'] = ret['type']
 
-        if 'dwc:parent_id' in obj:
-            obj['dwc:relatedResourceID'] = obj['dwc:parent_id']
-            del obj['dwc:parent_id']
+        if 'dwc:parent' in obj:
+            obj['dwc:relatedResourceID'] = obj['dwc:parent']
+            del obj['dwc:parent']
             if ret['type'] == 'measurementorfact':
                 obj['dwc:relatedResourceID'] = f"http://purl.org/gbifnorway/id/{obj['dwc:relatedResourceID']}"
                 obj['dwc:relationshipOfResource'] = 'measurement of'
