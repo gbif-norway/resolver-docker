@@ -148,6 +148,13 @@ class MigrationProcessingTest(TestCase):
             cursor.execute('SELECT * FROM temp')
             columns = [col[0] for col in cursor.description]
 
+    def test_sync_id_ids_are_always_converted_to_lowercase(self):
+        with connection.cursor() as cursor:
+            cursor.execute("CREATE TABLE temp (id text, occurrenceid text, materialsampleid text)")
+            cursor.execute("INSERT INTO temp VALUES ('urn:uuid:1A', 'urn:uuid:1A', 'ABC')")
+            migration_processing.sync_id_column('materialsampleid', 'occurrenceid')
+            cursor.execute('SELECT * FROM temp')
+            self.assertEqual([('abc', 'urn:uuid:1A', 'ABC', 'urn:uuid:1a')], cursor.fetchall())
 
     def test_purlfriendly_id_with_urn_prefix(self):
         with connection.cursor() as cursor:

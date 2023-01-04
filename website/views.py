@@ -54,6 +54,7 @@ class ResolvableObjectViewSet(viewsets.ReadOnlyModelViewSet):
     pagination_class = CustomPagination
     filter_backends = [DjangoFilterBackend]
     filter_fields = { 'deleted_date': ['gte', 'lte', 'exact'], 'dataset_id': ['exact'], 'type': ['exact'] }
+    lookup_field = 'id__iexact'
 
     def get_queryset(self):
         query_params = self.request.query_params
