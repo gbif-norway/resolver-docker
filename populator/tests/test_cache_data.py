@@ -81,7 +81,7 @@ class CacheDataTest(TransactionTestCase):
         ResolvableObject.objects.create(id=id_, type='occurrence', dataset=self.dataset, data=data)
 
     def create_ro_migration(self, data={}, id_='a'):  # The newly imported data
-        ResolvableObjectMigration.objects.create(id=id_, type='occurrence', dataset_id=self.dataset.id, data=data, parent_id=None)
+        ResolvableObjectMigration.objects.create(id=id_, type='occurrence', dataset_id=self.dataset.id, data=data, parent=None)
 
     def assert_json_equal(self, iterable1, iterable2):  # Necessary as assertEqual does not compare json fields
         self.assertEqual([model_to_dict(x) for x in iterable1], [model_to_dict(x) for x in iterable2])

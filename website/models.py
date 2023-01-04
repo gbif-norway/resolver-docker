@@ -12,7 +12,7 @@ class Dataset(models.Model):
 
 class ResolvableObject(models.Model):
     id = models.CharField(max_length=200, primary_key=True, serialize=False)
-    parent = models.ForeignKey('self', null=True, blank=True, on_delete=models.PROTECT)
+    parent = models.CharField(max_length=200, null=True, blank=True)
     data = JSONField()
     type = models.CharField(max_length=200)
     dataset = models.ForeignKey(Dataset, on_delete=models.CASCADE)

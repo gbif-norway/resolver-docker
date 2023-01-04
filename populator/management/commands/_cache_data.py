@@ -120,8 +120,8 @@ def add_new_records():
     # Add new records as darwincoreobjects, may be faster to use https://stackoverflow.com/questions/19363481/select-rows-which-are-not-present-in-other-table
     with connection.cursor() as cursor:
         cursor.execute("""
-        INSERT INTO website_resolvableobject(id, data, type, dataset_id, created_date, parent_id)
-        SELECT new.id, new.data, new.type, new.dataset_id, CURRENT_DATE, new.parent_id
+        INSERT INTO website_resolvableobject(id, data, type, dataset_id, created_date, parent)
+        SELECT new.id, new.data, new.type, new.dataset_id, CURRENT_DATE, new.parent
         FROM populator_resolvableobjectmigration AS new
         LEFT JOIN website_resolvableobject AS old ON new.id = old.id
         WHERE old.id IS NULL
