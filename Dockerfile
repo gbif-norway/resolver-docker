@@ -3,6 +3,8 @@ ENV PYTHONUNBUFFERED 1
 WORKDIR /srv
 COPY ./src /srv
 COPY ./requirements.txt /srv/requirements.txt
+RUN apt update && \
+    apt install -y vim cron
 RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
 COPY ./entrypoint.sh /srv/entrypoint.sh

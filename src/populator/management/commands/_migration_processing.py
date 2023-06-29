@@ -148,7 +148,7 @@ def add_dataset_id(dataset_id):
             cursor.execute("UPDATE temp SET datasetid = '%s'" % dataset_id)
 
 
-def record_duplicates(dataset_id, core_type, file='/code/duplicates.txt'):
+def record_duplicates(dataset_id, core_type, file='/srv/duplicates.txt'):
     with connection.cursor() as cursor:
         query = ("""
         SELECT 

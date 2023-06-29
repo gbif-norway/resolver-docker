@@ -78,7 +78,7 @@ class Command(BaseCommand):
         log_time(start, 'finished! total  count now set {}'.format(total_count))
 
 
-def create_duplicates_file(file='/code/duplicates.txt'):
+def create_duplicates_file(file='/srv/duplicates.txt'):
     with open(file, 'w') as f:
         f.write('id|new_data|new_datasetid|new_coretype|old_data|old_datasetid\n')
 

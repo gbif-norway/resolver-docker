@@ -7,7 +7,7 @@ env >> /etc/environment
 
 # Cron
 chmod a+x manage.py
-printf '%s\n\n' '0 0 * * MON python manage.py populate_resolver >> /var/log/cron_populate_resolver.log 2>&1' > /etc/cron.d/cron-jobs
+printf '%s\n\n' '0 0 * * MON /usr/local/bin/python /srv/manage.py populate_resolver >> /var/log/cron_populate_resolver.log 2>&1' > /etc/cron.d/cron-jobs
 crontab /etc/cron.d/cron-jobs
 cron
 

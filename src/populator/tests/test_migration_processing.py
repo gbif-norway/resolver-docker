@@ -14,27 +14,27 @@ class MigrationProcessingTest(TestCase):
             return cursor.fetchone()[0]
 
     def test_import_dwca_imports_rows(self):
-        migration_processing.import_dwca('my_dataset_id', '/code/populator/tests/mock_data/dwca-seabird_estimates-v1.0.zip')
+        migration_processing.import_dwca('my_dataset_id', '/srv/populator/tests/mock_data/dwca-seabird_estimates-v1.0.zip')
         self.assertEqual(ResolvableObjectMigration.objects.count(), 20191)
 
     def test_import_dwca_skips_bad_rows(self):
-        migration_processing.import_dwca('my_dataset_id', '/code/populator/tests/mock_data/dwc_archive_bad_rows.zip')
+        migration_processing.import_dwca('my_dataset_id', '/srv/populator/tests/mock_data/dwc_archive_bad_rows.zip')
         self.assertEqual(ResolvableObjectMigration.objects.count(), 11)
 
     def test_import_dwca_works_for_non_core_files(self):
-        migration_processing.import_dwca('my_dataset_id', '/code/populator/tests/mock_data/dwca_measurementorfact.zip')
+        migration_processing.import_dwca('my_dataset_id', '/srv/populator/tests/mock_data/dwca_measurementorfact.zip')
         self.assertEqual(ResolvableObjectMigration.objects.filter(type='measurementorfact').count(), 10)
         self.assertEqual(ResolvableObjectMigration.objects.filter(type='occurrence').count(), 1)
 
     def test_import_dwca_links_mof_parents_to_occurrences(self):
-        migration_processing.import_dwca('my_dataset_id', '/code/populator/tests/mock_data/dwca_measurementorfact.zip')
+        migration_processing.import_dwca('my_dataset_id', '/srv/populator/tests/mock_data/dwca_measurementorfact.zip')
         mof = ResolvableObjectMigration.objects.filter(type='measurementorfact').first()
         self.assertEqual(mof.id, '2335276d-7d77-47be-8e33-91b6833b057b')  # Make sure it hasn't overwritten it with the core ID
         occ = ResolvableObjectMigration.objects.filter(type='occurrence').first()
         self.assertEqual(mof.parent, occ.id)  # This is the core ID, an occurrenceID in this case
 
     def test_import_dwca_links_mof_parents_to_events(self):
-        migration_processing.import_dwca('my_dataset_id', '/code/populator/tests/mock_data/dwca_measurementorfact-events.zip')
+        migration_processing.import_dwca('my_dataset_id', '/srv/populator/tests/mock_data/dwca_measurementorfact-events.zip')
         mof = ResolvableObjectMigration.objects.filter(type='measurementorfact').first()
         self.assertEqual(mof.id, '2335276d-7d77-47be-8e33-91b6833b057b')
         event = ResolvableObjectMigration.objects.filter(type='event').first()
@@ -44,7 +44,7 @@ class MigrationProcessingTest(TestCase):
         self.assertEqual(occ.parent, event.id)
 
     def test_blank_fields_not_imported(self):
-        migration_processing.import_dwca('my_dataset_id', '/code/populator/tests/mock_data/dwc_archive_bad_rows.zip')
+        migration_processing.import_dwca('my_dataset_id', '/srv/populator/tests/mock_data/dwc_archive_bad_rows.zip')
         # The DwCA has a column 'sex' with no data, check that we don't import {"sex": ''} into the jsonb field
         first = ResolvableObjectMigration.objects.all().first()
         self.assertTrue('sex' not in first.data.keys())
@@ -304,7 +304,7 @@ class MigrationProcessingTest(TestCase):
         self.assertEqual(results, expected)
 
     def test_record_duplicates_works_with_records_with_duplicate_ids(self):
-        file = '/code/test_duplicates.txt'
+        file = '/srv/test_duplicates.txt'
         create_duplicates_file(file)
         with connection.cursor() as cursor:
             cursor.execute('CREATE TABLE temp (id text, parent text, sname text)')
@@ -328,11 +328,11 @@ class MigrationProcessingTest(TestCase):
         self.assertEqual(result[1].split('|'), expected)
 
     def test_record_duplicates_works_with_weird_char_encoding(self):
-        file = '/code/duplicates.txt'
+        file = '/srv/duplicates.txt'
         create_duplicates_file(file)
-        count = migration_processing.import_dwca('my_dataset_id', '/code/populator/tests/mock_data/dwca-molltax-v1.195.zip')
+        count = migration_processing.import_dwca('my_dataset_id', '/srv/populator/tests/mock_data/dwca-molltax-v1.195.zip')
         self.assertEqual(count, 23227)
-        count = migration_processing.import_dwca('my_dataset_id', '/code/populator/tests/mock_data/dwca-molltax-v1.195.zip')
+        count = migration_processing.import_dwca('my_dataset_id', '/srv/populator/tests/mock_data/dwca-molltax-v1.195.zip')
         self.assertEqual(count, 0)
         self.assertEqual(ResolvableObjectMigration.objects.count(), 23227)
 
