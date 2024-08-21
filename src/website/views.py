@@ -81,7 +81,13 @@ class ResolvableObjectViewSet(viewsets.ReadOnlyModelViewSet):
 
         # Remove urn:uuid:prefix
         filter_kwargs = {self.lookup_field: self.kwargs[lookup_url_kwarg].replace('urn:uuid:', '')}
-        obj = get_object_or_404(queryset, **filter_kwargs)
+        # obj = get_object_or_404(queryset, **filter_kwargs) - this takes too long and hangs as of 2024-04-21
+        try:
+            print(f'getting object with {filter_kwargs}')
+            obj = ResolvableObject.objects.get(id=filter_kwargs['id__iexact'])
+            print(f'successfully got object {obj.id}')
+        except ResolvableObject.DoesNotExist:
+            raise Http404("Object does not exist")
 
         # May raise a permission denied
         self.check_object_permissions(self.request, obj)
