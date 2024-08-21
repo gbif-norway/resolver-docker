@@ -8,6 +8,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from collections import defaultdict
 import json
 from django.shortcuts import get_object_or_404
+from django.http import Http404
 
 
 class HistoryViewSet(viewsets.ReadOnlyModelViewSet):
@@ -83,11 +84,16 @@ class ResolvableObjectViewSet(viewsets.ReadOnlyModelViewSet):
         filter_kwargs = {self.lookup_field: self.kwargs[lookup_url_kwarg].replace('urn:uuid:', '')}
         # obj = get_object_or_404(queryset, **filter_kwargs) - this takes too long and hangs as of 2024-04-21
         try:
-            print(f'getting object with {filter_kwargs}')
-            obj = ResolvableObject.objects.get(id=filter_kwargs['id__iexact'])
-            print(f'successfully got object {obj.id}')
+            print(f'getting object with {filter_kwargs} with {filter_kwargs["id__iexact"].lower}')
+            obj = ResolvableObject.objects.get(id=filter_kwargs['id__iexact'].lower())
+            print(f'successfully got object {obj.id} with lowercase lookup')
         except ResolvableObject.DoesNotExist:
-            raise Http404("Object does not exist")
+            try:
+                print(f'getting object with {filter_kwargs}')
+                obj = ResolvableObject.objects.get(id=filter_kwargs['id__iexact'])
+                print(f'successfully got object {obj.id}')
+            except ResolvableObject.DoesNotExist:
+                raise Http404("Object does not exist")
 
         # May raise a permission denied
         self.check_object_permissions(self.request, obj)

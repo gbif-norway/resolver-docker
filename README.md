@@ -4,4 +4,4 @@ Create key value pairs ("FOO=BAR", 1 per line) for environment settings in eithe
 To run: `docker-compose -f docker-compose.dev.yml up` 
 Once a dev docker container is up and running, enter it with `docker exec -it resolver-docker_web_1 /bin/bash` and run `python manage.py test to run tests.`
 
-To build & push: `docker build . -t gbifnorway/resolver:latest` and `docker push gbifnorway/resolver:latest`
+To build & push: `docker build . -t gbifnorway/resolver:latest` and `docker push gbifnorway/resolver:latest` and for buildx `docker buildx build --platform linux/amd64 -t gbifnorway/resolver:latest --push .`
