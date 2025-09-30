@@ -22,6 +22,7 @@ class Command(BaseCommand):
         big = {
                'crop wild relatives, global': '07044577-bd82-4089-9f3a-f4a9d2170b2e',
                'artsobs': 'b124e1e0-4755-430f-9eab-894f25a9b59c',
+               'Visuelle undersøkelser - petroleumsvirksomhet': 'b6b4502f-ffc8-4048-a91b-af502288faa8'
                }
 
         # Set up for import
