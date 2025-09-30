@@ -5,6 +5,35 @@ import psycopg2 as p
 import re
 import logging
 import os
+import requests
+import traceback
+
+
+DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1422496265375059969/_2rkGt-ZgLfGSvOSVKufwVuCdO5Pp2F2wwJ4q8dHNEe8qriH_TW0qzwdNn3rO_C0Guzp"
+
+
+def send_discord_error(dataset_id, error_message, error_type="Migration Error"):
+    """Send error notification to Discord webhook"""
+    try:
+        embed = {
+            "title": f"🚨 {error_type}",
+            "description": f"**Dataset ID:** `{dataset_id}`\n**Error:** {error_message}",
+            "color": 15158332,  # Red color
+            "timestamp": datetime.now().isoformat(),
+            "footer": {
+                "text": "Resolver Migration System"
+            }
+        }
+        
+        payload = {
+            "embeds": [embed]
+        }
+        
+        response = requests.post(DISCORD_WEBHOOK_URL, json=payload, timeout=10)
+        if response.status_code != 204:
+            logging.getLogger(__name__).warning(f"Discord webhook failed: {response.status_code}")
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"Failed to send Discord notification: {e}")
 
 
 def get_dataset_id(zip_file_location):
@@ -34,18 +63,22 @@ def import_dwca(dataset_id, zip_file_location='/tmp/tmp.zip'):
                     try:
                         import_file(f)
                     except p.errors.CharacterNotInRepertoire as e:
-                        logger.error(e)
-                        logger.error('file_name')
+                        error_msg = f"Character encoding error in file {file_name}: {str(e)}"
+                        logger.error(error_msg)
+                        send_discord_error(dataset_id, error_msg, "Character Encoding Error")
                         continue
                     except p.errors.BadCopyFileFormat as e:
-                        logger.error(e)
-                        logger.error('file_name')
+                        error_msg = f"Bad copy file format in file {file_name}: {str(e)}"
+                        logger.error(error_msg)
+                        send_discord_error(dataset_id, error_msg, "File Format Error")
                         continue
                     logger.info(f'fin copy from stdin, took {datetime.now() - now}')
                     now = datetime.now()
 
                     if not sync_id_column(get_id(file_name), get_id(core)):
-                        logger.info(f'Warning: could not sync id column for {file_name}')
+                        error_msg = f"Could not sync ID column for file {file_name}"
+                        logger.error(error_msg)
+                        send_discord_error(dataset_id, error_msg, "ID Column Sync Error")
                         return 0
 
                     purlfriendly_id_columns()
@@ -59,8 +92,19 @@ def import_dwca(dataset_id, zip_file_location='/tmp/tmp.zip'):
                     count += insert_json_into_migration_table(dataset_id, file_name)
                     logger.info(f'fin inserted {count}, took {datetime.now() - now}')
     except BadZipFile:
-        logger.error('Bad zip')
+        error_msg = f"Bad zip file for dataset {dataset_id}"
+        logger.error(error_msg)
+        send_discord_error(dataset_id, error_msg, "Bad Zip File Error")
         return 0
+    except Exception as e:
+        error_msg = f"Unexpected error processing dataset {dataset_id}: {str(e)}\n{traceback.format_exc()}"
+        logger.error(error_msg)
+        send_discord_error(dataset_id, error_msg, "Unexpected Error")
+        return 0
+    finally:
+        # Clean up temp table in case of any unexpected failures
+        with connection.cursor() as cursor:
+            cursor.execute('DROP TABLE IF EXISTS temp')
 
     return count
 
@@ -92,7 +136,9 @@ def get_id(file_type):
         return ID_MAPPINGS[file_type]
     except KeyError as e:
         logger = logging.getLogger(__name__)
-        logger.error('Key error for core type {}'.format(file_type))
+        error_msg = f'Key error for core type {file_type}: {e}'
+        logger.error(error_msg)
+        send_discord_error('unknown', error_msg, "Core Type Key Error")
         return False
 
 
@@ -122,11 +168,15 @@ def sync_id_column(id_column, core_id):
             cursor.execute("UPDATE temp SET parent = LOWER(parent)")
     except p.errors.UndefinedColumn:
         logger = logging.getLogger(__name__)
-        logger.error('Undefined column')
+        error_msg = 'Undefined column error in sync_id_column'
+        logger.error(error_msg)
+        send_discord_error('unknown', error_msg, "Database Column Error")
         return False
     except utils.ProgrammingError as e:
         logger = logging.getLogger(__name__)
-        logger.error(f'Programming error {e}')
+        error_msg = f'Programming error in sync_id_column: {e}'
+        logger.error(error_msg)
+        send_discord_error('unknown', error_msg, "Database Programming Error")
         return False
     return True
 
