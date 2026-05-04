@@ -5,6 +5,7 @@ import psycopg2 as p
 import re
 import logging
 import os
+import tempfile
 import requests
 import traceback
 
@@ -114,8 +115,69 @@ def get_columns(firstline):
 
 
 def import_file(f):
+    logger = logging.getLogger(__name__)
+    normalized_file, stats = normalize_to_utf8_file(f)
+    logger.info(
+        "normalized input before COPY: utf8_fallback_lines=%s cp1252_fallback_lines=%s latin1_fallback_lines=%s replacement_chars=%s escaped_backslashes=%s",
+        stats['utf8_fallback_lines'],
+        stats['cp1252_fallback_lines'],
+        stats['latin1_fallback_lines'],
+        stats['replacement_chars'],
+        stats['escaped_backslashes'],
+    )
     with connection.cursor() as cursor:
-        cursor.copy_from(file=f, table='temp', null="")
+        cursor.copy_from(file=normalized_file, table='temp', null="")
+    try:
+        normalized_file.close()
+        os.unlink(normalized_file.name)
+    except OSError:
+        pass
+
+
+def normalize_to_utf8_file(file_obj):
+    """Normalize a tab-delimited DWCA stream to valid UTF-8 for PostgreSQL COPY.
+
+    Strategy:
+    1. Try strict UTF-8.
+    2. Fallback to cp1252 (common legacy source of 0x95 bullet byte).
+    3. Final fallback to latin-1.
+    """
+    stats = {
+        'utf8_fallback_lines': 0,
+        'cp1252_fallback_lines': 0,
+        'latin1_fallback_lines': 0,
+        'replacement_chars': 0,
+        'escaped_backslashes': 0,
+    }
+    tmp = tempfile.NamedTemporaryFile(mode='w+', encoding='utf-8', delete=False)
+    try:
+        for raw_line in file_obj:
+            decoded = decode_line_with_fallback(raw_line, stats)
+            stats['replacement_chars'] += decoded.count('\ufffd')
+            # PostgreSQL COPY text mode treats backslash escapes like \225 as raw bytes.
+            # Double backslashes to preserve literal content and prevent invalid UTF-8 bytes.
+            stats['escaped_backslashes'] += decoded.count('\\')
+            tmp.write(decoded.replace('\\', '\\\\'))
+        tmp.flush()
+        tmp.seek(0)
+        return tmp, stats
+    except Exception:
+        tmp.close()
+        os.unlink(tmp.name)
+        raise
+
+
+def decode_line_with_fallback(raw_line, stats):
+    try:
+        return raw_line.decode('utf-8')
+    except UnicodeDecodeError:
+        stats['utf8_fallback_lines'] += 1
+    try:
+        stats['cp1252_fallback_lines'] += 1
+        return raw_line.decode('cp1252')
+    except UnicodeDecodeError:
+        stats['latin1_fallback_lines'] += 1
+        return raw_line.decode('latin-1', errors='replace')
 
 
 def create_temp_table(columns):
