@@ -6,6 +6,8 @@ from unittest import mock
 from rest_framework.test import APITestCase
 from rest_framework.reverse import reverse
 from django.test import SimpleTestCase
+from django.urls import resolve
+from website import views
 from django.db import DatabaseError
 
 
@@ -270,6 +272,56 @@ class ResolverViewTests(APITestCase):
         response = self.client.get(url, HTTP_ACCEPT='application/ld+json')
         self.assertTrue(response.status_code == 200)
 
+    def test_resolves_id_containing_slash(self):
+        for id in ['urn:catalog:o:b:60267/1', 'miljolare/fugl/771343']:
+            ResolvableObject.objects.create(id=id, dataset=self.dataset, data={'basisofrecord': 'PreservedSpecimen'})
+            for url in [f'/{id}/?format=json', f'/{id.upper()}/?format=json', f"/{id.replace('/', '%2F')}/?format=json", reverse('resolvableobject-detail', [id])]:
+                response = self.client.get(url, HTTP_ACCEPT='application/json')
+                self.assertEqual(response.status_code, 200, url)
+                self.assertEqual(json.loads(response.content.decode('utf-8'))['@id'], f'http://purl.org/gbifnorway/id/{id}')
+            self.assertEqual(reverse('resolvableobject-detail', [id]), f'/{id}/')
+            self.assertEqual(self.client.get(f'/{id}/', HTTP_ACCEPT='text/html').status_code, 200)
+
+    def test_resolves_id_containing_dot(self):
+        id = 'urn:catalog:o:b:60267.1'
+        ResolvableObject.objects.create(id=id, dataset=self.dataset, data={'catalognumber': '60267.1', 'basisofrecord': 'PreservedSpecimen'})
+        response = self.client.get(f'/{id}/?format=json')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(json.loads(response.content.decode('utf-8'))['@id'], f'http://purl.org/gbifnorway/id/{id}')
+
+    def test_redirects_id_containing_slash_to_trailing_slash(self):
+        ResolvableObject.objects.create(id='urn:catalog:o:b:60267/1', dataset=self.dataset, data={'catalognumber': '60267/1'})
+        response = self.client.get('/urn:catalog:o:b:60267/1?format=json')
+        self.assertEqual(response.status_code, 301)
+        self.assertEqual(response['Location'], '/urn:catalog:o:b:60267/1/?format=json')
+
+    def test_displays_404_given_non_existent_id_containing_slash(self):
+        response = self.client.get('/urn:catalog:o:b:60267/2/')
+        self.assertEqual(response.status_code, 404)
+
+    def test_strips_urn_uuid_after_slash_like_the_populator(self):
+        ResolvableObject.objects.create(id='miljolare/5c0884ce-608c-4716-ba0e-cb389dca5580', dataset=self.dataset, data={'basisofrecord': 'PreservedSpecimen'})
+        response = self.client.get('/miljolare/urn:uuid:5c0884ce-608c-4716-ba0e-cb389dca5580/?format=json')
+        self.assertEqual(response.status_code, 200)
+
+    def test_unknown_path_without_trailing_slash_redirects_then_404s(self):
+        response = self.client.get('/favicon.ico')
+        self.assertEqual(response.status_code, 301)
+        self.assertEqual(response['Location'], '/favicon.ico/')
+        self.assertEqual(self.client.get(response['Location']).status_code, 404)
+
+    def test_other_routes_are_not_shadowed_by_detail_route(self):
+        for path, url_name in [('/', 'resolvableobject-list'), ('/healthz/', 'healthz'), ('/readyz/', 'readyz'),
+                               ('/from-gbif/4429413305', 'from-gbif'), ('/datasets/', 'dataset-list'),
+                               ('/datasets/a/', 'dataset-detail'), ('/history/', 'history-list'),
+                               ('/history/1/', 'history-detail'), ('/a/b/', 'resolvableobject-detail')]:
+            self.assertEqual(resolve(path).url_name, url_name, path)
+        self.assertIs(resolve('/from-gbif/4429413305/').func.view_class, views.FromGbifView)
+        self.assertEqual(self.client.get('/datasets/a/').status_code, 200)
+        response = self.client.get('/healthz')
+        self.assertEqual(response.status_code, 301)
+        self.assertEqual(response['Location'], '/healthz/')
+
     def _simple_request_occurrence(self, http_accept):
         id = 'urn:uuid:5c0884ce-608c-4716-ba0e-cb389dca5580'
         ResolvableObject.objects.create(id=id, dataset=self.dataset, data={'id': id, 'basisOfRecord': 'preservedspecimen'})
@@ -291,7 +343,17 @@ class FromGbifViewTests(APITestCase):
         fetch_mock.return_value = {'occurrenceID': 'urn:catalog:O:F:256920'}
         response = self.client.get(reverse('from-gbif', kwargs={'gbif_key': '4429413305'}))
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response['Location'], '/urn%3Acatalog%3AO%3AF%3A256920')
+        self.assertEqual(response['Location'], '/urn%3Acatalog%3AO%3AF%3A256920/')
+
+    @mock.patch('website.views.fetch_gbif_occurrence')
+    def test_redirect_resolves_occurrence_id_containing_slash(self, fetch_mock):
+        dataset = Dataset.objects.create(id='a', data={'label': 'My dataset', 'type': 'occurrence'})
+        ResolvableObject.objects.create(id='urn:catalog:o:b:60267/1', dataset=dataset, data={'basisofrecord': 'PreservedSpecimen'})
+        fetch_mock.return_value = {'occurrenceID': 'urn:catalog:O:B:60267/1'}
+        response = self.client.get(reverse('from-gbif', kwargs={'gbif_key': '4429413305'}), follow=True, HTTP_ACCEPT='application/json')
+        self.assertEqual(response.redirect_chain, [('/urn%3Acatalog%3AO%3AB%3A60267%2F1/', 302)])
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(json.loads(response.content.decode('utf-8'))['@id'], 'http://purl.org/gbifnorway/id/urn:catalog:o:b:60267/1')
 
     @mock.patch('website.views.fetch_gbif_occurrence')
     def test_returns_404_when_key_not_found(self, fetch_mock):

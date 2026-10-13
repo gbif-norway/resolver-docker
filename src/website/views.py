@@ -110,6 +110,9 @@ class ResolvableObjectViewSet(viewsets.ReadOnlyModelViewSet):
     filter_backends = [DjangoFilterBackend]
     filterset_fields = { 'deleted_date': ['gte', 'lte', 'exact'], 'dataset_id': ['exact'], 'type': ['exact'] }
     lookup_field = 'id__iexact'
+    # Ids can contain '/' and '.' (e.g. urn:catalog:o:b:60267/1), which DRF's default '[^/.]+' rejects.
+    # This makes the detail route a catch-all, so it must be the last URL pattern (see resolver/urls.py)
+    lookup_value_regex = '.+'
 
     def get_queryset(self):
         query_params = self.request.query_params
@@ -134,7 +137,7 @@ class ResolvableObjectViewSet(viewsets.ReadOnlyModelViewSet):
                 (self.__class__.__name__, lookup_url_kwarg)
         )
 
-        # Remove urn:uuid:prefix
+        # Remove urn:uuid: wherever it occurs, as the populator does when storing ids
         filter_kwargs = {self.lookup_field: self.kwargs[lookup_url_kwarg].replace('urn:uuid:', '')}
         # obj = get_object_or_404(queryset, **filter_kwargs) - this takes too long and hangs as of 2024-04-21
         try:
@@ -210,4 +213,4 @@ class FromGbifView(APIView):
                 status=status.HTTP_422_UNPROCESSABLE_ENTITY,
             )
 
-        return HttpResponseRedirect("/{}".format(quote(occurrence_id, safe="")))
+        return HttpResponseRedirect("/{}/".format(quote(occurrence_id, safe="")))
