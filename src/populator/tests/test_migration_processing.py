@@ -145,10 +145,21 @@ class MigrationProcessingTest(TestCase):
             cursor.execute("CREATE TABLE temp (id text, occurrenceid text, materialsampleid text)")
             cursor.execute("INSERT INTO temp VALUES ('urn:uuid:1', 'urn:uuid:1', 'b55cbe46-5f2f-4c07-8223-9d4b0c8ed811|a55cbe46-5f2f-4c07-8223-9d4b0c8ed811')")
             self.assertTrue(migration_processing.sync_id_column('occurrenceid', 'occurrenceid'))
-            cursor.execute('SELECT * FROM temp')
-            columns = [col[0] for col in cursor.description]
-            # Note that the second othercatalognumber gets deleted
-            self.assertEqual(dict(zip(columns, cursor.fetchone())), {'id': 'b55cbe46-5f2f-4c07-8223-9d4b0c8ed811', 'occurrenceid': 'urn:uuid:1', 'materialsampleid': 'b55cbe46-5f2f-4c07-8223-9d4b0c8ed811', 'parent': None})
+            cursor.execute('SELECT * FROM temp ORDER BY id')
+            # Each sheet of a multi-sheet specimen gets its own copy of the record
+            self.assertEqual(cursor.fetchall(), [('a55cbe46-5f2f-4c07-8223-9d4b0c8ed811', 'urn:uuid:1', 'a55cbe46-5f2f-4c07-8223-9d4b0c8ed811', None),
+                                                 ('b55cbe46-5f2f-4c07-8223-9d4b0c8ed811', 'urn:uuid:1', 'b55cbe46-5f2f-4c07-8223-9d4b0c8ed811', None)])
+
+    def test_sync_id_with_many_materialsampleids(self):
+        with connection.cursor() as cursor:
+            cursor.execute("CREATE TABLE temp (id text, occurrenceid text, materialsampleid text)")
+            cursor.execute("INSERT INTO temp VALUES ('urn:uuid:1', 'urn:uuid:1', '60A6D9EC-E74B-11E4-994E-00155D012A60,60A72EC4-E74B-11E4-AB46-00155D012A60, 60A6D9EC-E74B-11E4-994E-00155D012A60,70a72ec4-e74b-11e4-ab46-00155d012a60,70A72EC4-E74B-11E4-AB46-00155D012A60')")
+            self.assertTrue(migration_processing.sync_id_column('occurrenceid', 'occurrenceid'))
+            cursor.execute('SELECT id, materialsampleid FROM temp ORDER BY id')
+            # Repeats of a UUID in the same field do not create extra rows, and so do not stop the UUID resolving
+            self.assertEqual(cursor.fetchall(), [('60a6d9ec-e74b-11e4-994e-00155d012a60', '60A6D9EC-E74B-11E4-994E-00155D012A60'),
+                                                 ('60a72ec4-e74b-11e4-ab46-00155d012a60', '60a72ec4-e74b-11e4-ab46-00155d012a60'),
+                                                 ('70a72ec4-e74b-11e4-ab46-00155d012a60', '70a72ec4-e74b-11e4-ab46-00155d012a60')])
 
     def test_sync_id_with_duplicate_materialsampleid(self):
         with connection.cursor() as cursor:
@@ -158,12 +169,43 @@ class MigrationProcessingTest(TestCase):
             cursor.execute("INSERT INTO temp VALUES ('urn:uuid:3', 'urn:uuid:3', '3136D80A-E74C-11E4-A2DC-00155D012A60')")
             cursor.execute("INSERT INTO temp VALUES ('urn:uuid:4', 'urn:uuid:4', '3136D80A-E74C-11E4-A2DC-00155D012A60,5FF9E4CE-E74D-11E4-891B-00155D012A60')")
             cursor.execute("INSERT INTO temp VALUES ('urn:uuid:5', 'urn:uuid:5', 'http://purl.org/nhmuio/id/bdb4f713-5ef6-472b-9e9c-3d03dcb4b6b7')")
-            cursor.execute("INSERT INTO temp VALUES ('urn:uuid:6', 'urn:uuid:6', 'bdb4f713-5ef6-472b-9e9c-3d03dcb4b6b7')")
+            cursor.execute("INSERT INTO temp VALUES ('urn:uuid:6', 'urn:uuid:6', 'BDB4F713-5EF6-472B-9E9C-3D03DCB4B6B7')")
             self.assertTrue(migration_processing.sync_id_column('occurrenceid', 'occurrenceid'))
-            cursor.execute('SELECT * FROM temp')
-            self.assertEqual([('urn:uuid:1', 'urn:uuid:1', '', None), ('urn:uuid:2', 'urn:uuid:2', '', None),
-                              ('urn:uuid:3', 'urn:uuid:3', '', None), ('urn:uuid:4', 'urn:uuid:4', '', None),
-                              ('urn:uuid:5', 'urn:uuid:5', '', None), ('urn:uuid:6', 'urn:uuid:6', '', None)], cursor.fetchall())
+            cursor.execute('SELECT * FROM temp ORDER BY id')
+            # Shared UUIDs stay in materialsampleid but are not used as ids; the unshared second UUID of urn:uuid:4 still resolves
+            self.assertEqual(cursor.fetchall(), [('5ff9e4ce-e74d-11e4-891b-00155d012a60', 'urn:uuid:4', '5ff9e4ce-e74d-11e4-891b-00155d012a60', None),
+                                                 ('urn:uuid:1', 'urn:uuid:1', 'b55cbe46-5f2f-4c07-8223-9d4b0c8ed811', None),
+                                                 ('urn:uuid:2', 'urn:uuid:2', 'b55cbe46-5f2f-4c07-8223-9d4b0c8ed811', None),
+                                                 ('urn:uuid:3', 'urn:uuid:3', '3136D80A-E74C-11E4-A2DC-00155D012A60', None),
+                                                 ('urn:uuid:4', 'urn:uuid:4', '3136D80A-E74C-11E4-A2DC-00155D012A60', None),
+                                                 ('urn:uuid:5', 'urn:uuid:5', 'bdb4f713-5ef6-472b-9e9c-3d03dcb4b6b7', None),
+                                                 ('urn:uuid:6', 'urn:uuid:6', 'BDB4F713-5EF6-472B-9E9C-3D03DCB4B6B7', None)])
+
+    def test_sync_id_with_shared_extra_materialsampleid(self):
+        with connection.cursor() as cursor:
+            cursor.execute("CREATE TABLE temp (id text, occurrenceid text, materialsampleid text)")
+            cursor.execute("INSERT INTO temp VALUES ('urn:uuid:1', 'urn:uuid:1', 'a55cbe46-5f2f-4c07-8223-9d4b0c8ed811,b55cbe46-5f2f-4c07-8223-9d4b0c8ed811')")
+            cursor.execute("INSERT INTO temp VALUES ('urn:uuid:2', 'urn:uuid:2', 'B55CBE46-5F2F-4C07-8223-9D4B0C8ED811')")
+            cursor.execute("INSERT INTO temp VALUES ('urn:uuid:3', 'urn:uuid:3', 'c55cbe46-5f2f-4c07-8223-9d4b0c8ed811,d55cbe46-5f2f-4c07-8223-9d4b0c8ed811')")
+            cursor.execute("INSERT INTO temp VALUES ('urn:uuid:4', 'urn:uuid:4', 'e55cbe46-5f2f-4c07-8223-9d4b0c8ed811,d55cbe46-5f2f-4c07-8223-9d4b0c8ed811')")
+            self.assertTrue(migration_processing.sync_id_column('occurrenceid', 'occurrenceid'))
+            cursor.execute('SELECT id, occurrenceid FROM temp ORDER BY id')
+            # An extra UUID shared with another record gets no copy, which would otherwise duplicate the original record's id
+            self.assertEqual(cursor.fetchall(), [('a55cbe46-5f2f-4c07-8223-9d4b0c8ed811', 'urn:uuid:1'),
+                                                 ('c55cbe46-5f2f-4c07-8223-9d4b0c8ed811', 'urn:uuid:3'),
+                                                 ('e55cbe46-5f2f-4c07-8223-9d4b0c8ed811', 'urn:uuid:4'),
+                                                 ('urn:uuid:2', 'urn:uuid:2')])
+
+    def test_sync_id_with_blank_materialsampleids(self):
+        with connection.cursor() as cursor:
+            cursor.execute("CREATE TABLE temp (id text, occurrenceid text, materialsampleid text)")
+            cursor.execute("INSERT INTO temp VALUES ('urn:uuid:1', 'urn:uuid:1', NULL)")
+            cursor.execute("INSERT INTO temp VALUES ('urn:uuid:2', 'urn:uuid:2', NULL)")
+            cursor.execute("INSERT INTO temp VALUES ('urn:uuid:3', 'urn:uuid:3', 'b55cbe46-5f2f-4c07-8223-9d4b0c8ed811')")
+            self.assertTrue(migration_processing.sync_id_column('occurrenceid', 'occurrenceid'))
+            cursor.execute('SELECT id FROM temp ORDER BY id')
+            # Records without a materialsampleid are not treated as sharing one
+            self.assertEqual(cursor.fetchall(), [('b55cbe46-5f2f-4c07-8223-9d4b0c8ed811',), ('urn:uuid:1',), ('urn:uuid:2',)])
 
     def test_sync_id_with_invalid_materialsampleid(self):
         with connection.cursor() as cursor:

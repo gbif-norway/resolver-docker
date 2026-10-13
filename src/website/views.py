@@ -16,10 +16,14 @@ from tenacity import retry, stop_after_attempt, wait_fixed, retry_if_exception_t
 from django.shortcuts import get_object_or_404
 from django.http import Http404, HttpResponse, HttpResponseRedirect
 from django.db import connection, DatabaseError
+from django.db.models import Q
 from urllib.parse import quote
+import re
 
 
 GBIF_API_OCCURRENCE_URL = "https://api.gbif.org/v1/occurrence/{}"
+UUID_PATTERN = re.compile(r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}')
+MAX_SHARED_UUID_MATCHES = 50
 
 
 def healthz(request):
@@ -149,6 +153,27 @@ class ResolvableObjectViewSet(viewsets.ReadOnlyModelViewSet):
         self.check_object_permissions(self.request, obj)
 
         return obj
+
+    def retrieve(self, request, *args, **kwargs):
+        try:
+            return super().retrieve(request, *args, **kwargs)
+        except Http404:
+            identifier = self.kwargs[self.lookup_url_kwarg or self.lookup_field].replace('urn:uuid:', '')
+            if not UUID_PATTERN.fullmatch(identifier):
+                raise
+            # Specimens mounted on the same sheet share a UUID, which is then kept in materialsampleid instead of the id
+            query = Q()
+            for value in {identifier, identifier.lower(), identifier.upper()}:
+                query |= Q(data__contains={'materialsampleid': value})
+            matches = list(ResolvableObject.objects.filter(query).order_by('id')[:MAX_SHARED_UUID_MATCHES])
+            if not matches:
+                raise
+            if len(matches) == 1:
+                return Response(self.get_serializer(matches[0]).data)
+            return Response(
+                {'detail': f'{len(matches)} specimens share this identifier', 'results': self.get_serializer(matches, many=True).data},
+                status=status.HTTP_300_MULTIPLE_CHOICES,
+            )
 
 class DatasetViewSet(viewsets.ReadOnlyModelViewSet):
     """
