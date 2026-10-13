@@ -83,5 +83,6 @@ Before rollout, make sure:
 - This image runs DB migrations and starts an internal weekly cron on pod startup.
 - Startup and liveness probes use `/healthz/` without querying PostgreSQL. Readiness uses `/readyz/` to remove the pod from service when the database is unavailable.
 - Keep `replicas: 1` unless you first move scheduled jobs out of the web pod.
+- The namespace lacks enough memory quota for a second resolver pod. Updates stop the old pod before starting the new one, causing a brief interruption.
 - The bundle includes a `NetworkPolicy` that allows ingress traffic from namespace `kube-ingress` to `resolver-web` on port `8080`.
 - Shared in-cluster PostgreSQL manifests are in `k8s/nird/postgres-shared/`.

@@ -69,14 +69,15 @@ kubectl --context nird-lmd -n gbif-no-ns8095k get pods,svc,ingress
 curl -fsS https://resolver.gbif-no.sigma2.no/?format=json | head
 ```
 
-### Current CI flow (`latest`)
+### Current CI flow
 
-This repo has GitHub Actions to test and publish `gbifnorway/resolver:latest` on push to `main`.
+GitHub Actions tests and publishes `gbifnorway/resolver:latest` and a tag with the full commit SHA on push to `main`.
 
-After CI publishes, restart deployment to pull the new image:
+After CI publishes, deploy the commit-tagged image:
 
 ```sh
-kubectl --context nird-lmd -n gbif-no-ns8095k rollout restart deploy/resolver-web
+IMAGE_TAG=$(git rev-parse HEAD)
+kubectl --context nird-lmd -n gbif-no-ns8095k set image deploy/resolver-web resolver-web=gbifnorway/resolver:${IMAGE_TAG}
 kubectl --context nird-lmd -n gbif-no-ns8095k rollout status deploy/resolver-web
 ```
 
