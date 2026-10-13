@@ -29,6 +29,8 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/resolver:latest
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/resolver:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/resolver:${{ github.sha }}
 
 
