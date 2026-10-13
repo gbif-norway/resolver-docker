@@ -23,6 +23,8 @@ services:
       - SQL_PASSWORD=
       - SQL_HOST=db
       - SQL_PORT=5432
+      - DJANGO_SECRET_KEY=test-only-secret-key
+      - DJANGO_ALLOWED_HOSTS=testserver,localhost,127.0.0.1
     depends_on:
       db:
         condition: service_healthy

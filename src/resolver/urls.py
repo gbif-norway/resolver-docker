@@ -16,7 +16,7 @@ Including another URLconf
 from django.urls import include, path
 from website import views
 from rest_framework import routers
-import debug_toolbar
+from django.conf import settings
 
 router = routers.SimpleRouter()
 router.register(r'datasets', views.DatasetViewSet)
@@ -26,5 +26,8 @@ router.register(r'', views.ResolvableObjectViewSet)
 urlpatterns = [
         path('from-gbif/<str:gbif_key>', views.FromGbifView.as_view(), name='from-gbif'),
         path('', include(router.urls)),
-        path('__debug__/', include(debug_toolbar.urls)),
     ]
+
+if settings.DEBUG:
+    import debug_toolbar
+    urlpatterns.append(path('__debug__/', include(debug_toolbar.urls)))

@@ -19,6 +19,10 @@ class HistoryViewTests(APITestCase):
         results = json.loads(response.content.decode('utf-8').lower())
         self.assertEqual(len(results['results']), 2)
 
+    def test_invalid_json_filter_returns_400(self):
+        response = self.client.get(reverse('history-list') + '?changed_data__contains=not-json')
+        self.assertEqual(response.status_code, 400)
+
     def test_filters(self):
         new = ResolvableObject.objects.create(id='b', data={'testb': 'a'}, dataset=self.dataset)
         History.objects.create(resolvable_object=new, changed_data={'testb': 'b'})

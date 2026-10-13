@@ -42,6 +42,8 @@ kubectl create secret generic resolver-env \
   --dry-run=client -o yaml | kubectl apply -f -
 ```
 
+Add a newly generated `DISCORD_WEBHOOK_URL` to the secret if ingestion alerts are needed. An older webhook was committed to this repository and should be revoked; the importer skips webhook notifications when this setting is absent.
+
 ## Deploying new code changes
 
 ### Recommended flow (immutable image tag)

@@ -4,6 +4,7 @@ from rest_framework import viewsets, renderers, pagination
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.exceptions import ValidationError
 from .serializers import ResolvableObjectSerializer, DatasetSerializer, HistorySerializer
 from .renderers import RDFRenderer, JSONLDRenderer
 from .paginators import CustomPagination, CustomCountPagination
@@ -58,17 +59,20 @@ class HistoryViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = History.objects.all()
     serializer_class = HistorySerializer
     filter_backends = [DjangoFilterBackend]
-    filter_fields = { 'changed_date': ['gte', 'lte', 'exact'] }
+    filterset_fields = { 'changed_date': ['gte', 'lte', 'exact'] }
 
     def get_queryset(self):
         query_params = self.request.query_params
-        changed_data = { key.replace('changed_data__', ''): item for key, item in query_params.items() if 'changed_data__' in key }
+        changed_data = {key.removeprefix('changed_data__'): item for key, item in query_params.items() if key.startswith('changed_data__')}
         query = {}
         for key, item in changed_data.items():
             if key == 'has_key':
                 query['changed_data__has_key'] = item
             elif key == 'contains':
-                query['changed_data__contains'] = json.loads(item)  # Item should be {"key": "value", ...}
+                try:
+                    query['changed_data__contains'] = json.loads(item)
+                except json.JSONDecodeError:
+                    raise ValidationError({'changed_data__contains': 'Must be valid JSON.'})
             else:
                 continue
         if 'resolvable_object' in query_params:
@@ -86,7 +90,7 @@ class ResolvableObjectViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = ResolvableObjectSerializer
     pagination_class = CustomPagination
     filter_backends = [DjangoFilterBackend]
-    filter_fields = { 'deleted_date': ['gte', 'lte', 'exact'], 'dataset_id': ['exact'], 'type': ['exact'] }
+    filterset_fields = { 'deleted_date': ['gte', 'lte', 'exact'], 'dataset_id': ['exact'], 'type': ['exact'] }
     lookup_field = 'id__iexact'
 
     def get_queryset(self):

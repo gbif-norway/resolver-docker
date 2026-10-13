@@ -2,6 +2,7 @@ from django.db import connection, transaction, utils
 from zipfile import ZipFile, BadZipFile
 from datetime import datetime, timedelta
 import psycopg2 as p
+from psycopg2 import sql as psql
 import re
 import logging
 import os
@@ -10,11 +11,13 @@ import requests
 import traceback
 
 
-DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1422496265375059969/_2rkGt-ZgLfGSvOSVKufwVuCdO5Pp2F2wwJ4q8dHNEe8qriH_TW0qzwdNn3rO_C0Guzp"
 
 
 def send_discord_error(dataset_id, error_message, error_type="Migration Error"):
-    """Send error notification to Discord webhook"""
+    """Send error notification to Discord webhook when configured."""
+    webhook_url = os.environ.get("DISCORD_WEBHOOK_URL")
+    if not webhook_url:
+        return
     try:
         embed = {
             "title": f"🚨 {error_type}",
@@ -30,7 +33,7 @@ def send_discord_error(dataset_id, error_message, error_type="Migration Error"):
             "embeds": [embed]
         }
         
-        response = requests.post(DISCORD_WEBHOOK_URL, json=payload, timeout=10)
+        response = requests.post(webhook_url, json=payload, timeout=10)
         if response.status_code != 204:
             logging.getLogger(__name__).warning(f"Discord webhook failed: {response.status_code}")
     except Exception as e:
@@ -182,7 +185,11 @@ def decode_line_with_fallback(raw_line, stats):
 
 def create_temp_table(columns):
     with connection.cursor() as cursor:
-        cursor.execute('DROP TABLE IF EXISTS temp; CREATE TABLE temp ("' + '" text, "'.join(columns) + '" text);')
+        cursor.execute('DROP TABLE IF EXISTS temp')
+        definitions = psql.SQL(', ').join(
+            psql.SQL('{} text').format(psql.Identifier(column)) for column in columns
+        )
+        cursor.execute(psql.SQL('CREATE TABLE temp ({})').format(definitions))
 
 
 def get_core(file_list):
@@ -213,18 +220,18 @@ def sync_id_column(id_column, core_id):
                 cursor.execute("ALTER TABLE temp ADD COLUMN id text")
             elif core_id and core_id != id_column:
                 cursor.execute("UPDATE temp SET parent = id")  # So we do not lose the core ids
-            cursor.execute("UPDATE temp SET id = %s" % id_column)
+            cursor.execute(psql.SQL('UPDATE temp SET id = {}').format(psql.Identifier(id_column)))
         with connection.cursor() as cursor:  # Some NHM datasets have purl IDs in materialsampleid
             cursor.execute("SELECT COUNT(*) FROM information_schema.columns WHERE table_name='temp' and column_name='materialsampleid';")
             if cursor.fetchone()[0] == 1:
                 cursor.execute("UPDATE temp SET materialsampleid = REPLACE(materialsampleid, 'http://purl.org/nhmuio/id/', '')")
                 # Sometimes there are multiple UUIDs in one column, when one specimen is spread over several sheets. This is a mistake, but nothing can be done now. Just make the first one work.
-                cursor.execute("UPDATE temp SET materialsampleid = REGEXP_REPLACE(materialsampleid, '^([0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12}).+', '\\1')")
+                cursor.execute("UPDATE temp SET materialsampleid = REGEXP_REPLACE(materialsampleid, '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}).+', '\\1')")
                 # Sometimes there are duplicate uuids in materialsampleid for multiple records when we have 2 or more specimens on 1 sheet. This is a mistake, but cannot be fixed now. Do not resolve any of these.
                 duplicates = 'SELECT materialsampleid FROM temp GROUP BY materialsampleid HAVING count(id) > 1'
                 cursor.execute("UPDATE temp SET materialsampleid = '' WHERE materialsampleid IN (" + duplicates + ")")
                 # Finally, put materialsampleid in the id column if they look like they are valid
-                cursor.execute("UPDATE temp SET id = materialsampleid WHERE materialsampleid ~ '[0-9a-fA-F]{8}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{4}\-[0-9a-fA-F]{12}'")
+                cursor.execute("UPDATE temp SET id = materialsampleid WHERE materialsampleid ~ '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'")
         with connection.cursor() as cursor:  # Force all IDs to lowercase
             cursor.execute("UPDATE temp SET id = LOWER(id)")
             cursor.execute("UPDATE temp SET parent = LOWER(parent)")
@@ -257,24 +264,24 @@ def add_dataset_id(dataset_id):
         cursor.execute("SELECT COUNT(*) FROM information_schema.columns WHERE table_name='temp' and column_name='datasetid';")
         if cursor.fetchone()[0] == 0:
             cursor.execute('ALTER TABLE temp ADD COLUMN datasetid text')
-            cursor.execute("UPDATE temp SET datasetid = '%s'" % dataset_id)
+            cursor.execute('UPDATE temp SET datasetid = %s', [dataset_id])
 
 
 def record_duplicates(dataset_id, core_type, file='/srv/duplicates.txt'):
     with connection.cursor() as cursor:
-        query = ("""
+        query = cursor.mogrify("""
         SELECT 
             temp.id AS id, 
             row_to_json(temp) AS new_data, 
-            '{0}' AS new_datasetid, 
-            '{1}' AS new_core_type, 
+            %s AS new_datasetid,
+            %s AS new_core_type,
             j.data AS old_data, 
             j.dataset_id AS old_datasetid
         FROM temp 
         LEFT JOIN populator_resolvableobjectmigration AS j ON j.id = temp.id
         WHERE j.id IS NOT NULL
-        """).format(dataset_id, core_type)
-        outputquery = "COPY ({0}) TO STDOUT (DELIMITER '|')".format(query)
+        """, (dataset_id, core_type)).decode()
+        outputquery = "COPY ({}) TO STDOUT (DELIMITER '|')".format(query)
 
         with open(file, 'a') as f:
             cursor.copy_expert(outputquery, f)
@@ -301,11 +308,13 @@ def insert_json_into_migration_table(dataset_id, core_type, step=300000):
     for i in range(0, _max, step):
         logger = logging.getLogger(__name__)
         logger.info('Migration loop: {}'.format(i))
-        make_json_sql = (f"SELECT temp.id, json_strip_nulls(row_to_json(temp)), '{dataset_id}', '{core_type}', temp.parent"
-                         f" FROM temp ORDER BY temp.id LIMIT {step} OFFSET {i};")
-        insert_sql = 'INSERT INTO populator_resolvableobjectmigration(id, data, dataset_id, type, parent) ' + make_json_sql
         with connection.cursor() as cursor:
-            cursor.execute(insert_sql)
+            cursor.execute(
+                'INSERT INTO populator_resolvableobjectmigration(id, data, dataset_id, type, parent) '
+                'SELECT temp.id, json_strip_nulls(row_to_json(temp)), %s, %s, temp.parent '
+                'FROM temp ORDER BY temp.id LIMIT %s OFFSET %s',
+                [dataset_id, core_type, step, i],
+            )
             count += cursor.rowcount
         #db = create_keepalive_connection()
         #with db.cursor() as cursor:

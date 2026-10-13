@@ -2,9 +2,25 @@ from populator.management.commands import _migration_processing as migration_pro
 from populator.management.commands.populate_resolver import create_duplicates_file
 from populator.models import ResolvableObjectMigration
 from django.db import connection, transaction
-from django.test import TestCase, TransactionTestCase
+from django.test import SimpleTestCase, TestCase, TransactionTestCase
 from django.forms.models import model_to_dict
 import os
+from unittest import mock
+
+
+class DiscordNotificationTests(SimpleTestCase):
+    @mock.patch.dict(os.environ, {'DISCORD_WEBHOOK_URL': ''})
+    @mock.patch('populator.management.commands._migration_processing.requests.post')
+    def test_skips_notification_without_webhook(self, post_mock):
+        migration_processing.send_discord_error('dataset-id', 'error')
+        post_mock.assert_not_called()
+
+    @mock.patch.dict(os.environ, {'DISCORD_WEBHOOK_URL': 'https://example.org/hook'})
+    @mock.patch('populator.management.commands._migration_processing.requests.post')
+    def test_uses_configured_webhook(self, post_mock):
+        post_mock.return_value.status_code = 204
+        migration_processing.send_discord_error('dataset-id', 'error')
+        self.assertEqual(post_mock.call_args.args[0], 'https://example.org/hook')
 
 
 class MigrationProcessingTest(TestCase):
@@ -78,6 +94,15 @@ class MigrationProcessingTest(TestCase):
             cursor.execute('SELECT * FROM temp')
             cursor.fetchall()
             self.assertEqual(headings, [col[0] for col in cursor.description])
+
+    def test_create_temp_table_quotes_archive_column_names(self):
+        column = 'bad" text); DROP TABLE website_dataset; --'
+        migration_processing.create_temp_table(['id', column])
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT * FROM temp')
+            self.assertEqual([col[0] for col in cursor.description], ['id', column])
+            cursor.execute("SELECT to_regclass('website_dataset')")
+            self.assertIsNotNone(cursor.fetchone()[0])
 
     def test_sync_id_column_add_new_id_col(self):
         with connection.cursor() as cursor:
@@ -198,6 +223,17 @@ class MigrationProcessingTest(TestCase):
             cursor.execute("SELECT * FROM temp")
             results = [('a', 'b', 'a', 'c', 'd', '2b52369a-7fe0-4d28-b88c-c882c0ce71d8'), ('e', 'f', 'e', 'g', 'h', '2b52369a-7fe0-4d28-b88c-c882c0ce71d8')]
             self.assertEqual(cursor.fetchall(), results)
+
+    def test_add_dataset_id_treats_value_as_data(self):
+        value = "x'); DROP TABLE website_dataset; --"
+        with connection.cursor() as cursor:
+            cursor.execute('CREATE TABLE temp (id text)')
+            cursor.execute("INSERT INTO temp VALUES ('a')")
+            migration_processing.add_dataset_id(value)
+            cursor.execute('SELECT datasetid FROM temp')
+            self.assertEqual(cursor.fetchone()[0], value)
+            cursor.execute("SELECT to_regclass('website_dataset')")
+            self.assertIsNotNone(cursor.fetchone()[0])
 
     def test_add_dataset_id_with_preexisting_dataset_id(self):
         with connection.cursor() as cursor:

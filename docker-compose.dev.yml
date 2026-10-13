@@ -1,24 +1,31 @@
-version: '3'
-
 services:
   db:
-    image: postgres
+    image: postgres:15
     shm_size: 5g
     environment:
         - POSTGRES_HOST_AUTH_METHOD=trust
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
   web:
     build: .
-    command: python manage.py runserver 0.0.0.0:80
+    entrypoint: ["/bin/sh", "-ec"]
+    command: ["python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:80"]
     env_file:
       - ./dev.env
+    environment:
+      DJANGO_DEBUG: "True"
     volumes:
-      - .:/code
+      - ./src:/srv
     expose:
       - 80
     depends_on:
-        - db
+      db:
+        condition: service_healthy
 
 networks:
   default:
-    external:
-      name: nginx-proxy
+    name: nginx-proxy
+    external: true

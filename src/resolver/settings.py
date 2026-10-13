@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/2.1/ref/settings/
 """
 
 import os
+from django.core.exceptions import ImproperlyConfigured
 
 
 def env_bool(name, default=False):
@@ -22,22 +23,34 @@ def env_bool(name, default=False):
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/2.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'dev-secret-key')
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env_bool('DJANGO_DEBUG', False)
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+
+if not SECRET_KEY:
+    if DEBUG:
+        SECRET_KEY = 'dev-secret-key'
+    else:
+        raise ImproperlyConfigured('DJANGO_SECRET_KEY is required when debug is off')
 
 hosts_env = os.environ.get('DJANGO_ALLOWED_HOSTS') or os.environ.get('VIRTUAL_HOST')
 if hosts_env:
     ALLOWED_HOSTS = [host.strip() for host in hosts_env.split(',') if host.strip()]
 else:
-    ALLOWED_HOSTS = ['*']
+    if DEBUG:
+        ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+    else:
+        raise ImproperlyConfigured('DJANGO_ALLOWED_HOSTS is required when debug is off')
 
 
 # Application definition
@@ -47,7 +60,6 @@ INSTALLED_APPS = [
     'django.contrib.auth',
     'website.apps.WebsiteConfig',
     'django.contrib.staticfiles',
-    'debug_toolbar',
     'rest_framework',
     'django_filters',
     'corsheaders',
@@ -61,8 +73,11 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'debug_toolbar.middleware.DebugToolbarMiddleware',
 ]
+
+if DEBUG:
+    INSTALLED_APPS.append('debug_toolbar')
+    MIDDLEWARE.append('debug_toolbar.middleware.DebugToolbarMiddleware')
 
 ROOT_URLCONF = 'resolver.urls'
 
@@ -166,8 +181,7 @@ def show_toolbar(request):
 DEBUG_TOOLBAR_CONFIG = { "SHOW_TOOLBAR_CALLBACK" : show_toolbar, }
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
-CORS_ORIGIN_ALLOW_ALL = True
-CORS_ORIGIN_REGEX_WHITELIST = ('http://.*.local.*', '.*gbif.no.*')
+CORS_ALLOW_ALL_ORIGINS = True
 
 LOGGING = {
     'version': 1,
