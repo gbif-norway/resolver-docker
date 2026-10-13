@@ -4,7 +4,7 @@ This repo now contains a basic Kubernetes deployment in `k8s/nird`.
 Target namespace: `gbif-no-ns8095k`.
 Ingress host: `resolver.gbif-no.sigma2.no`.
 
-## 1) Configure kubectl access
+## 1) Configure kubectl access [ALREADY DONE]
 
 Follow `nird-toolkit-auth-helper-README.md`:
 
@@ -17,7 +17,7 @@ kubectl config use-context nird-lmd
 kubectl get ns
 ```
 
-## 2) Set app environment
+## 2) Set app environment [ALREADY DONE]
 
 The deployment expects a secret named `resolver-env`.
 

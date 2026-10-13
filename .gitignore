@@ -47,3 +47,4 @@ duplicates.txt
 .idea
 .idea/*
 bulk/
+minio-creds.txt

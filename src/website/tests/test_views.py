@@ -1,6 +1,8 @@
 from website.models import ResolvableObject, Dataset
 from populator.models import Statistic, History
 import json
+import requests
+from unittest import mock
 from rest_framework.test import APITestCase
 from rest_framework.reverse import reverse
 
@@ -235,3 +237,30 @@ class ResolverViewTests(APITestCase):
         url = reverse('resolvableobject-detail', [id])
         response = self.client.get(url, HTTP_ACCEPT=http_accept)
         return response.content.decode('utf-8').lower()
+
+
+class FromGbifViewTests(APITestCase):
+    @mock.patch('website.views.fetch_gbif_occurrence')
+    def test_redirects_to_occurrence_id(self, fetch_mock):
+        fetch_mock.return_value = {'occurrenceID': 'urn:catalog:O:F:256920'}
+        response = self.client.get(reverse('from-gbif', kwargs={'gbif_key': '4429413305'}))
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response['Location'], '/urn%3Acatalog%3AO%3AF%3A256920')
+
+    @mock.patch('website.views.fetch_gbif_occurrence')
+    def test_returns_404_when_key_not_found(self, fetch_mock):
+        fetch_mock.return_value = None
+        response = self.client.get(reverse('from-gbif', kwargs={'gbif_key': '4429413305'}))
+        self.assertEqual(response.status_code, 404)
+
+    @mock.patch('website.views.fetch_gbif_occurrence')
+    def test_returns_422_when_occurrenceid_missing(self, fetch_mock):
+        fetch_mock.return_value = {'key': 4429413305}
+        response = self.client.get(reverse('from-gbif', kwargs={'gbif_key': '4429413305'}))
+        self.assertEqual(response.status_code, 422)
+
+    @mock.patch('website.views.fetch_gbif_occurrence')
+    def test_returns_503_on_gbif_api_failure(self, fetch_mock):
+        fetch_mock.side_effect = requests.exceptions.Timeout('boom')
+        response = self.client.get(reverse('from-gbif', kwargs={'gbif_key': '4429413305'}))
+        self.assertEqual(response.status_code, 503)

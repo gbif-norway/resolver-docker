@@ -1,0 +1,23 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: resolver-web
+  annotations:
+    kubernetes.io/ingress.class: nginx
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: resolver.gbif-no.sigma2.no
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: resolver-web
+                port:
+                  number: 80
+  tls:
+    - hosts:
+        - resolver.gbif-no.sigma2.no
+      secretName: wildcard-tls

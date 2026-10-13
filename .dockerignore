@@ -1,1 +1,5 @@
 duplicates.txt
+*.env
+.env
+minio-creds.txt
+.git

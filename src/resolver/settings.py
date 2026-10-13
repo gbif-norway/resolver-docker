@@ -12,6 +12,14 @@ https://docs.djangoproject.com/en/2.1/ref/settings/
 
 import os
 
+
+def env_bool(name, default=False):
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return str(value).strip().lower() in ('1', 'true', 'yes', 'on')
+
+
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -23,10 +31,13 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'dev-secret-key')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DJANGO_DEBUG', False)
+DEBUG = env_bool('DJANGO_DEBUG', False)
 
-#ALLOWED_HOSTS = [os.environ.get('VIRTUAL_HOST', 'resolver.local')]
-ALLOWED_HOSTS = ['*']
+hosts_env = os.environ.get('DJANGO_ALLOWED_HOSTS') or os.environ.get('VIRTUAL_HOST')
+if hosts_env:
+    ALLOWED_HOSTS = [host.strip() for host in hosts_env.split(',') if host.strip()]
+else:
+    ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -85,6 +96,10 @@ DATABASES = {
         'PORT': os.environ.get('SQL_PORT', '5432'),
     }
 }
+
+sql_sslmode = os.environ.get('SQL_SSLMODE')
+if sql_sslmode:
+    DATABASES['default']['OPTIONS'] = {'sslmode': sql_sslmode}
 
 
 # Password validation

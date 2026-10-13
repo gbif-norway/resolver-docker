@@ -1,14 +1,46 @@
 from .models import ResolvableObject, Dataset
 from populator.models import History
 from rest_framework import viewsets, renderers, pagination
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
 from .serializers import ResolvableObjectSerializer, DatasetSerializer, HistorySerializer
 from .renderers import RDFRenderer, JSONLDRenderer
 from .paginators import CustomPagination, CustomCountPagination
 from django_filters.rest_framework import DjangoFilterBackend
 from collections import defaultdict
 import json
+import requests
+from tenacity import retry, stop_after_attempt, wait_fixed, retry_if_exception_type
 from django.shortcuts import get_object_or_404
-from django.http import Http404
+from django.http import Http404, HttpResponseRedirect
+from urllib.parse import quote
+
+
+GBIF_API_OCCURRENCE_URL = "https://api.gbif.org/v1/occurrence/{}"
+
+
+class TemporaryGbifApiError(Exception):
+    pass
+
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_fixed(1),
+    retry=retry_if_exception_type(
+        (requests.exceptions.ConnectionError, requests.exceptions.Timeout, TemporaryGbifApiError)
+    ),
+    reraise=True,
+)
+def fetch_gbif_occurrence(gbif_key):
+    response = requests.get(GBIF_API_OCCURRENCE_URL.format(gbif_key), timeout=10)
+    if response.status_code == 404:
+        return None
+    if 500 <= response.status_code < 600:
+        raise TemporaryGbifApiError("GBIF API temporary failure")
+    if response.status_code != 200:
+        return None
+    return response.json()
 
 
 class HistoryViewSet(viewsets.ReadOnlyModelViewSet):
@@ -108,3 +140,31 @@ class DatasetViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Dataset.objects.all()
     serializer_class = DatasetSerializer
     pagination_class = pagination.LimitOffsetPagination
+
+
+class FromGbifView(APIView):
+    """Resolve a GBIF occurrence key to resolver ID via GBIF occurrence API."""
+
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request, gbif_key):
+        try:
+            occurrence = fetch_gbif_occurrence(gbif_key)
+        except (requests.exceptions.RequestException, TemporaryGbifApiError):
+            return Response(
+                {"detail": "GBIF lookup temporarily unavailable"},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        if not occurrence:
+            raise Http404("GBIF occurrence key not found")
+
+        occurrence_id = occurrence.get("occurrenceID")
+        if not occurrence_id:
+            return Response(
+                {"detail": "GBIF occurrence has no occurrenceID"},
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            )
+
+        return HttpResponseRedirect("/{}".format(quote(occurrence_id, safe="")))
