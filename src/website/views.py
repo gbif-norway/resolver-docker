@@ -14,11 +14,25 @@ import json
 import requests
 from tenacity import retry, stop_after_attempt, wait_fixed, retry_if_exception_type
 from django.shortcuts import get_object_or_404
-from django.http import Http404, HttpResponseRedirect
+from django.http import Http404, HttpResponse, HttpResponseRedirect
+from django.db import connection, DatabaseError
 from urllib.parse import quote
 
 
 GBIF_API_OCCURRENCE_URL = "https://api.gbif.org/v1/occurrence/{}"
+
+
+def healthz(request):
+    return HttpResponse('ok', content_type='text/plain')
+
+
+def readyz(request):
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT 1')
+    except DatabaseError:
+        return HttpResponse('database unavailable', status=503, content_type='text/plain')
+    return HttpResponse('ok', content_type='text/plain')
 
 
 class TemporaryGbifApiError(Exception):

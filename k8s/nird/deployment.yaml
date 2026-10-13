@@ -24,7 +24,7 @@ spec:
                 name: resolver-env
           readinessProbe:
             httpGet:
-              path: /
+              path: /readyz/
               port: http
               httpHeaders:
                 - name: Host
@@ -35,7 +35,7 @@ spec:
             failureThreshold: 6
           livenessProbe:
             httpGet:
-              path: /
+              path: /healthz/
               port: http
               httpHeaders:
                 - name: Host
@@ -46,7 +46,7 @@ spec:
             failureThreshold: 3
           startupProbe:
             httpGet:
-              path: /
+              path: /healthz/
               port: http
               httpHeaders:
                 - name: Host

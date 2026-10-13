@@ -5,6 +5,25 @@ import requests
 from unittest import mock
 from rest_framework.test import APITestCase
 from rest_framework.reverse import reverse
+from django.test import SimpleTestCase
+from django.db import DatabaseError
+
+
+class LivenessViewTests(SimpleTestCase):
+    def test_liveness_does_not_need_database(self):
+        response = self.client.get(reverse('healthz'))
+        self.assertEqual(response.status_code, 200)
+
+
+class ReadinessViewTests(APITestCase):
+    def test_ready_when_database_is_available(self):
+        response = self.client.get(reverse('readyz'))
+        self.assertEqual(response.status_code, 200)
+
+    @mock.patch('website.views.connection.cursor', side_effect=DatabaseError('unavailable'))
+    def test_not_ready_when_database_is_unavailable(self, cursor_mock):
+        response = self.client.get(reverse('readyz'))
+        self.assertEqual(response.status_code, 503)
 
 
 class HistoryViewTests(APITestCase):

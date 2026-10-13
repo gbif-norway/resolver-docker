@@ -79,8 +79,9 @@ Before rollout, make sure:
 
 ## Notes
 
-- Current image: `gbifnorway/resolver:latest`.
+- The manifest defaults to `gbifnorway/resolver:latest`; check the live Deployment for its actual image tag.
 - This image runs DB migrations and starts an internal weekly cron on pod startup.
+- Startup and liveness probes use `/healthz/` without querying PostgreSQL. Readiness uses `/readyz/` to remove the pod from service when the database is unavailable.
 - Keep `replicas: 1` unless you first move scheduled jobs out of the web pod.
 - The bundle includes a `NetworkPolicy` that allows ingress traffic from namespace `kube-ingress` to `resolver-web` on port `8080`.
 - Shared in-cluster PostgreSQL manifests are in `k8s/nird/postgres-shared/`.

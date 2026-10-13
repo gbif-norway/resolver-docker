@@ -24,6 +24,8 @@ router.register(r'history', views.HistoryViewSet)
 router.register(r'', views.ResolvableObjectViewSet)
 
 urlpatterns = [
+        path('healthz/', views.healthz, name='healthz'),
+        path('readyz/', views.readyz, name='readyz'),
         path('from-gbif/<str:gbif_key>', views.FromGbifView.as_view(), name='from-gbif'),
         path('', include(router.urls)),
     ]
