@@ -1,6 +1,12 @@
 from rest_framework import serializers
 from .models import ResolvableObject, Dataset
 from populator.models import History
+from urllib.parse import quote
+
+
+def purl(id):
+    # Some ids contain characters that are not allowed in IRIs, e.g. braces or spaces, so percent-encode them
+    return 'http://purl.org/gbifnorway/id/' + quote(id, safe=":/@!$&'()*+,;=")
 
 
 class HistorySerializer(serializers.ModelSerializer):
@@ -30,7 +36,7 @@ class ResolvableObjectSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         ret = super().to_representation(instance)
         items = ret['data']
-        obj = {'@id': f'http://purl.org/gbifnorway/id/{instance.id}'}
+        obj = {'@id': purl(instance.id)}
         obj['@context'] = {'dc': 'http://purl.org/dc/elements/1.1/', 'dwc': 'http://rs.tdwg.org/dwc/terms/', 'owl': 'https://www.w3.org/tr/owl-ref/', 'rdf': 'https://www.w3.org/tr/rdf-schema/'}
 
         # Preserved specimens are material samples, so only show relevant information for these records
@@ -53,7 +59,7 @@ class ResolvableObjectSerializer(serializers.ModelSerializer):
             obj['dwc:relatedResourceID'] = obj['dwc:parent']
             del obj['dwc:parent']
             if ret['type'] == 'measurementorfact':
-                obj['dwc:relatedResourceID'] = f"http://purl.org/gbifnorway/id/{obj['dwc:relatedResourceID']}"
+                obj['dwc:relatedResourceID'] = purl(obj['dwc:relatedResourceID'])
                 obj['dwc:relationshipOfResource'] = 'measurement of'
 
         if 'dwc:sameas' in obj:

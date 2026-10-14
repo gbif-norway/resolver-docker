@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
 from .serializers import ResolvableObjectSerializer, DatasetSerializer, HistorySerializer
-from .renderers import RDFRenderer, JSONLDRenderer
+from .renderers import RDFRenderer, TurtleRenderer, JSONLDRenderer
 from .paginators import CustomPagination, CustomCountPagination
 from django_filters.rest_framework import DjangoFilterBackend
 from collections import defaultdict
@@ -73,7 +73,8 @@ class HistoryViewSet(viewsets.ReadOnlyModelViewSet):
     Example query, searches for changes registered on 2022-07-01 where the dwc:type was changed from PhysicalObject, and there was a change to the dwc:catalognumber field:
     ?changed_date__gte=2022-07-01&changed_data__contains={"type": "PhysicalObject"}&changed_data__has_key=catalognumber
     """
-    renderer_classes = (renderers.JSONRenderer, renderers.BrowsableAPIRenderer, JSONLDRenderer, RDFRenderer)
+    # No RDF renderers: this data has no @context, so it would only ever render as an empty graph
+    renderer_classes = (renderers.JSONRenderer, renderers.BrowsableAPIRenderer, JSONLDRenderer)
     queryset = History.objects.all()
     serializer_class = HistorySerializer
     filter_backends = [DjangoFilterBackend]
@@ -103,7 +104,7 @@ class ResolvableObjectViewSet(viewsets.ReadOnlyModelViewSet):
     GBIF Norway's resolver provides data published to gbif.org by Norwegian publishers. Query by appending e.g.
     `?scientificname=Galium+odoratum` to filter on scientific name. Add '_add_counts=true' to return the result count (not performant).
     """
-    renderer_classes = (renderers.JSONRenderer, renderers.BrowsableAPIRenderer, JSONLDRenderer, RDFRenderer)
+    renderer_classes = (renderers.JSONRenderer, renderers.BrowsableAPIRenderer, JSONLDRenderer, RDFRenderer, TurtleRenderer)
     queryset = ResolvableObject.objects.all()
     serializer_class = ResolvableObjectSerializer
     pagination_class = CustomPagination
@@ -182,7 +183,8 @@ class DatasetViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Datasets endpoint
     """
-    renderer_classes = (renderers.JSONRenderer, renderers.BrowsableAPIRenderer, JSONLDRenderer, RDFRenderer)
+    # No RDF renderers: this data has no @context, so it would only ever render as an empty graph
+    renderer_classes = (renderers.JSONRenderer, renderers.BrowsableAPIRenderer, JSONLDRenderer)
     queryset = Dataset.objects.all()
     serializer_class = DatasetSerializer
     pagination_class = pagination.LimitOffsetPagination

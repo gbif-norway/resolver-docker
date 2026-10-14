@@ -9,7 +9,10 @@ from django.test import SimpleTestCase
 from django.urls import resolve
 from website import views
 from django.db import DatabaseError
-from rdflib import Graph, Literal, URIRef
+from rdflib import Graph, Literal, Namespace, URIRef
+from rdflib.compare import isomorphic
+
+DWC = Namespace('http://rs.tdwg.org/dwc/terms/')
 
 
 class LivenessViewTests(SimpleTestCase):
@@ -206,42 +209,51 @@ class ResolverViewTests(APITestCase):
         self.assertEqual(len(results['results']), 3)
         self.assertEqual(results['count'], 3) # Note: this fails at the moment until I can figure out a better way to count
 
-    # def test_renders_occurrence_json_ld(self):
-    #     response_string = self._simple_request_occurrence('application/ld+json')
-    #     expected_response = {'owl:sameas': 'urn:uuid:5c0884ce-608c-4716-ba0e-cb389dca5580',
-    #                          '@id': 'http://purl.org/gbifnorway/id/urn:uuid:5c0884ce-608c-4716-ba0e-cb389dca5580',
-    #                          'dwc:basisofrecord': 'preservedspecimen',
-    #                          'data-type': '',
-    #                          'deleted_date': None,
-    #                          'dataset': {'id': 'a', 'label': 'my dataset', 'type': 'event'},
-    #                          '@context': {'dc': 'http://purl.org/dc/elements/1.1/',
-    #                                       'dwc': 'http://rs.tdwg.org/dwc/terms/',
-    #                                       'owl': 'https://www.w3.org/tr/owl-ref/'}}
-    #     self.assertEqual(expected_response, json.loads(response_string))
-    #
-    # def test_renders_dataset_json_ld(self):
-    #     response_string = self._simple_request_dataset('application/ld+json')
-    #     expected_response = {'rdf:type': 'dataset',
-    #                          'owl:sameas': 'https://doi.org/10.12345/abcdef',
-    #                          'rdfs:label': 'my dataset name' ,
-    #                          '@id': 'http://purl.org/gbifnorway/id/urn:uuid:5c0884ce-608c-4716-ba0e-cb389dca5580',
-    #                          'data-type': '',
-    #                          'deleted_date': None,
-    #                          'dataset': {'id': 'a', 'label': 'my dataset', 'type': 'event'},
-    #                          '@context': {'dc': 'http://purl.org/dc/elements/1.1/',
-    #                                       'dwc': 'http://rs.tdwg.org/dwc/terms/',
-    #                                       'owl': 'https://www.w3.org/tr/owl-ref/',
-    #                                       'rdfs': 'https://www.w3.org/tr/rdf-schema/',
-    #                                       'rdf': 'https://www.w3.org/tr/rdf-schema/'}}
-    #     self.assertEqual(expected_response, json.loads(response_string))
-    #
-    # def test_renders_occurrence_rdf(self):
-    #     response_string = self._simple_request_occurrence('application/rdf+xml')
-    #     self.assertTrue('<owl:sameas>urn:uuid:5c0884ce-608c-4716-ba0e-cb389dca5580</owl:sameas>' in response_string)
-    #
-    # def test_renders_dataset_rdf(self):
-    #     response_string = self._simple_request_dataset('application/rdf+xml')
-    #     self.assertTrue('<owl:sameas>https://doi.org/10.12345/abcdef</owl:sameas>' in response_string)
+    def test_rdf_formats_match_json_ld(self):
+        records = [
+            ('miljolare/fugl/771343', {'occurrenceid': 'miljolare/fugl/771343', 'basisofrecord': 'HumanObservation', 'scientificname': 'Passer montanus'}),
+            ('urn:catalog:o:v:1', {'catalognumber': '1', 'basisofrecord': 'PreservedSpecimen', 'scientificname': 'Galium odoratum'}),
+        ]
+        for id, data in records:
+            with self.subTest(id=id):
+                ResolvableObject.objects.create(id=id, type='occurrence', dataset=self.dataset, data=data)
+                url = reverse('resolvableobject-detail', [id])
+                json_ld = self._get_graph(url, 'application/ld+json')
+                self.assertIn((URIRef(f'http://purl.org/gbifnorway/id/{id}'), DWC.scientificname, Literal(data['scientificname'])), json_ld)
+                for media_type in ['application/rdf+xml', 'text/turtle']:
+                    self.assertTrue(isomorphic(self._get_graph(url, media_type), json_ld), media_type)
+
+    def test_rdf_xml_replaces_characters_xml_cannot_represent(self):
+        ResolvableObject.objects.create(id='a', type='occurrence', dataset=self.dataset, data={'basisofrecord': 'HumanObservation', 'occurrenceremarks': 'Boraks.\x0bVevsprøve'})
+        url = reverse('resolvableobject-detail', ['a'])
+        subject = URIRef('http://purl.org/gbifnorway/id/a')
+        self.assertEqual(self._get_graph(url, 'application/rdf+xml').value(subject, DWC.occurrenceremarks), Literal('Boraks.\ufffdVevsprøve'))
+        self.assertEqual(self._get_graph(url, 'text/turtle').value(subject, DWC.occurrenceremarks), Literal('Boraks.\x0bVevsprøve'))
+
+    def test_percent_encodes_ids_that_are_not_valid_iris(self):
+        for id, purl in [('{4cdf0e3f-88b1-4ae0-9fc5-353738e3c6f1}', 'http://purl.org/gbifnorway/id/%7B4cdf0e3f-88b1-4ae0-9fc5-353738e3c6f1%7D'),
+                         ('85085:278663636:solenicola setigera', 'http://purl.org/gbifnorway/id/85085:278663636:solenicola%20setigera')]:
+            with self.subTest(id=id):
+                ResolvableObject.objects.create(id=id, type='occurrence', dataset=self.dataset, data={'basisofrecord': 'HumanObservation'})
+                response = self.client.get(purl.removeprefix('http://purl.org/gbifnorway/id') + '/', HTTP_ACCEPT='application/json')
+                self.assertEqual(json.loads(response.content.decode('utf-8'))['@id'], purl)
+                for media_type in ['application/rdf+xml', 'text/turtle']:
+                    self.assertIn((URIRef(purl), DWC.basisofrecord, Literal('HumanObservation')), self._get_graph(reverse('resolvableobject-detail', [id]), media_type))
+
+    def test_renders_every_listed_record_as_rdf(self):
+        uuid = '3136d80a-e74c-11e4-a2dc-00155d012a60'
+        for catalognumber in ['1', '2']:
+            ResolvableObject.objects.create(id=f'urn:catalog:o:v:{catalognumber}', dataset=self.dataset, data={'catalognumber': catalognumber, 'materialsampleid': uuid, 'basisofrecord': 'Preservedspecimen'})
+        subjects = {URIRef('http://purl.org/gbifnorway/id/urn:catalog:o:v:1'), URIRef('http://purl.org/gbifnorway/id/urn:catalog:o:v:2')}
+        for url, status in [(reverse('resolvableobject-list'), 200), (reverse('resolvableobject-detail', [uuid]), 300)]:
+            for media_type in ['application/rdf+xml', 'text/turtle']:
+                with self.subTest(url=url, media_type=media_type):
+                    self.assertEqual(set(self._get_graph(url, media_type, status).subjects(DWC.catalognumber)), subjects)
+
+    def test_history_and_datasets_are_not_offered_as_rdf(self):
+        for url in [reverse('dataset-list'), reverse('dataset-detail', ['a']), reverse('history-list')]:
+            for media_type in ['application/rdf+xml', 'text/turtle']:
+                self.assertEqual(self.client.get(url, HTTP_ACCEPT=media_type).status_code, 406, (url, media_type))
 
     def test_non_specimen_records_keep_id_and_context(self):
         records = [
@@ -364,19 +376,11 @@ class ResolverViewTests(APITestCase):
         self.assertEqual(response.status_code, 301)
         self.assertEqual(response['Location'], '/healthz/')
 
-    def _simple_request_occurrence(self, http_accept):
-        id = 'urn:uuid:5c0884ce-608c-4716-ba0e-cb389dca5580'
-        ResolvableObject.objects.create(id=id, dataset=self.dataset, data={'id': id, 'basisOfRecord': 'preservedspecimen'})
-        url = reverse('resolvableobject-detail', [id])
-        response = self.client.get(url, HTTP_ACCEPT=http_accept)
-        return response.content.decode('utf-8').lower()
-
-    def _simple_request_dataset(self, http_accept):
-        id = 'urn:uuid:5c0884ce-608c-4716-ba0e-cb389dca5580'
-        ResolvableObject.objects.create(id=id, dataset=self.dataset, data={'label': 'my dataset name', 'type': 'dataset', 'sameas': 'https://doi.org/10.12345/abcdef', 'id': id})
-        url = reverse('resolvableobject-detail', [id])
-        response = self.client.get(url, HTTP_ACCEPT=http_accept)
-        return response.content.decode('utf-8').lower()
+    def _get_graph(self, url, media_type, status=200):
+        response = self.client.get(url, HTTP_ACCEPT=media_type)
+        self.assertEqual(response.status_code, status)
+        self.assertEqual(response['Content-Type'], f'{media_type}; charset=utf-8')
+        return Graph().parse(data=response.content.decode('utf-8'), format=media_type)
 
 
 class FromGbifViewTests(APITestCase):
