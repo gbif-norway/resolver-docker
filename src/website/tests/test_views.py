@@ -240,6 +240,29 @@ class ResolverViewTests(APITestCase):
     #     response_string = self._simple_request_dataset('application/rdf+xml')
     #     self.assertTrue('<owl:sameas>https://doi.org/10.12345/abcdef</owl:sameas>' in response_string)
 
+    def test_lists_specimens_sharing_a_uuid(self):
+        uuid = '3136d80a-e74c-11e4-a2dc-00155d012a60'
+        for catalognumber in ['1', '2']:
+            ResolvableObject.objects.create(id=f'urn:catalog:o:v:{catalognumber}', dataset=self.dataset, data={'catalognumber': catalognumber, 'materialsampleid': uuid, 'basisofrecord': 'Preservedspecimen'})
+        url = reverse('resolvableobject-detail', [uuid.upper()])
+        response = self.client.get(url, HTTP_ACCEPT='application/ld+json')
+        self.assertEqual(response.status_code, 300)
+        results = json.loads(response.content.decode('utf-8'))['results']
+        self.assertEqual([result['@id'] for result in results], ['http://purl.org/gbifnorway/id/urn:catalog:o:v:1', 'http://purl.org/gbifnorway/id/urn:catalog:o:v:2'])
+        self.assertEqual(self.client.get(url, HTTP_ACCEPT='text/html').status_code, 300)
+
+    def test_resolves_uuid_found_only_in_materialsampleid(self):
+        uuid = '3136d80a-e74c-11e4-a2dc-00155d012a60'
+        ResolvableObject.objects.create(id='urn:catalog:o:v:1', dataset=self.dataset, data={'catalognumber': '1', 'materialsampleid': uuid.upper(), 'basisofrecord': 'Preservedspecimen'})
+        response = self.client.get(reverse('resolvableobject-detail', [f'urn:uuid:{uuid}']), HTTP_ACCEPT='application/ld+json')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(json.loads(response.content.decode('utf-8'))['dwc:catalognumber'], '1')
+
+    def test_displays_404_given_id_that_is_not_a_uuid(self):
+        ResolvableObject.objects.create(id='urn:catalog:o:v:1', dataset=self.dataset, data={'materialsampleid': 'abc'})
+        response = self.client.get(reverse('resolvableobject-detail', ['abc']))
+        self.assertEqual(response.status_code, 404)
+
     def test_case_insensitive_id_resolving(self):
         id = 'ABC'
         ResolvableObject.objects.create(id='abc', dataset=self.dataset, data={'id': id.lower(), 'basisOfRecord': 'preservedspecimen'})

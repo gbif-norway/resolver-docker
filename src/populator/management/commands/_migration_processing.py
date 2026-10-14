@@ -11,6 +11,7 @@ import requests
 import traceback
 
 
+UUID_REGEX = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'
 
 
 def send_discord_error(dataset_id, error_message, error_type="Migration Error"):
@@ -225,13 +226,14 @@ def sync_id_column(id_column, core_id):
             cursor.execute("SELECT COUNT(*) FROM information_schema.columns WHERE table_name='temp' and column_name='materialsampleid';")
             if cursor.fetchone()[0] == 1:
                 cursor.execute("UPDATE temp SET materialsampleid = REPLACE(materialsampleid, 'http://purl.org/nhmuio/id/', '')")
-                # Sometimes there are multiple UUIDs in one column, when one specimen is spread over several sheets. This is a mistake, but nothing can be done now. Just make the first one work.
-                cursor.execute("UPDATE temp SET materialsampleid = REGEXP_REPLACE(materialsampleid, '^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}).+', '\\1')")
-                # Sometimes there are duplicate uuids in materialsampleid for multiple records when we have 2 or more specimens on 1 sheet. This is a mistake, but cannot be fixed now. Do not resolve any of these.
-                duplicates = 'SELECT materialsampleid FROM temp GROUP BY materialsampleid HAVING count(id) > 1'
-                cursor.execute("UPDATE temp SET materialsampleid = '' WHERE materialsampleid IN (" + duplicates + ")")
+                # 2 or more specimens on 1 sheet share a UUID. Keep it in materialsampleid but not as the id, so looking up the UUID lists all of them.
+                find_shared_materialsampleids()
+                # A specimen spread over several sheets has one UUID per sheet in materialsampleid. Give every extra UUID its own copy of the record, so each sheet's QR code resolves.
+                add_rows_for_extra_materialsampleids()
+                cursor.execute(f"UPDATE temp SET materialsampleid = REGEXP_REPLACE(materialsampleid, '^({UUID_REGEX}).+', '\\1')")
                 # Finally, put materialsampleid in the id column if they look like they are valid
-                cursor.execute("UPDATE temp SET id = materialsampleid WHERE materialsampleid ~ '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'")
+                cursor.execute(f"UPDATE temp SET id = materialsampleid WHERE materialsampleid ~ '{UUID_REGEX}' AND LOWER(materialsampleid) NOT IN (SELECT uuid FROM temp_shared_materialsampleids)")
+                cursor.execute('DROP TABLE temp_shared_materialsampleids')
         with connection.cursor() as cursor:  # Force all IDs to lowercase
             cursor.execute("UPDATE temp SET id = LOWER(id)")
             cursor.execute("UPDATE temp SET parent = LOWER(parent)")
@@ -248,6 +250,30 @@ def sync_id_column(id_column, core_id):
         send_discord_error('unknown', error_msg, "Database Programming Error")
         return False
     return True
+
+
+def find_shared_materialsampleids():
+    with connection.cursor() as cursor:
+        cursor.execute('DROP TABLE IF EXISTS temp_shared_materialsampleids')
+        cursor.execute(f"""CREATE TABLE temp_shared_materialsampleids AS
+                           SELECT found.uuid
+                           FROM temp, LATERAL (SELECT DISTINCT LOWER(match[1]) AS uuid FROM REGEXP_MATCHES(temp.materialsampleid, '{UUID_REGEX}', 'g') AS match) AS found
+                           GROUP BY found.uuid HAVING COUNT(*) > 1""")
+
+
+def add_rows_for_extra_materialsampleids():
+    # Shared UUIDs cannot become ids, so a copy for one would collide with the original record
+    with connection.cursor() as cursor:
+        cursor.execute('DROP TABLE IF EXISTS temp_extra_materialsampleids')
+        cursor.execute(f"""CREATE TABLE temp_extra_materialsampleids AS
+                           SELECT DISTINCT temp.*, LOWER(extra.uuid[1]) AS extra_materialsampleid
+                           FROM temp, REGEXP_MATCHES(temp.materialsampleid, '{UUID_REGEX}', 'g') WITH ORDINALITY AS extra(uuid, n)
+                           WHERE extra.n > 1 AND LOWER(extra.uuid[1]) <> LOWER(SUBSTRING(temp.materialsampleid FROM '{UUID_REGEX}'))
+                               AND LOWER(extra.uuid[1]) NOT IN (SELECT uuid FROM temp_shared_materialsampleids)""")
+        cursor.execute('UPDATE temp_extra_materialsampleids SET materialsampleid = extra_materialsampleid')
+        cursor.execute('ALTER TABLE temp_extra_materialsampleids DROP COLUMN extra_materialsampleid')
+        cursor.execute('INSERT INTO temp SELECT * FROM temp_extra_materialsampleids')
+        cursor.execute('DROP TABLE temp_extra_materialsampleids')
 
 
 def purlfriendly_id_columns():  # PURL breaks when there is a ":" in the URL
