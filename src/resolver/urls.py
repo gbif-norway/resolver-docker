@@ -21,15 +21,20 @@ from django.conf import settings
 router = routers.SimpleRouter()
 router.register(r'datasets', views.DatasetViewSet)
 router.register(r'history', views.HistoryViewSet)
+# Registered last: its detail route matches any path ending in '/', because ids can contain '/'
 router.register(r'', views.ResolvableObjectViewSet)
 
 urlpatterns = [
         path('healthz/', views.healthz, name='healthz'),
         path('readyz/', views.readyz, name='readyz'),
         path('from-gbif/<str:gbif_key>', views.FromGbifView.as_view(), name='from-gbif'),
-        path('', include(router.urls)),
+        path('from-gbif/<str:gbif_key>/', views.FromGbifView.as_view()),
     ]
 
 if settings.DEBUG:
     import debug_toolbar
     urlpatterns.append(path('__debug__/', include(debug_toolbar.urls)))
+
+# Must stay last so the resolvable object detail route does not shadow the patterns above.
+# The flip side is that ids like 'datasets/<x>', 'history/<x>', 'healthz' or 'readyz' resolve to those routes instead
+urlpatterns.append(path('', include(router.urls)))
