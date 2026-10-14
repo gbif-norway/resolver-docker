@@ -43,7 +43,7 @@ class ResolvableObjectSerializer(serializers.ModelSerializer):
         elif 'basisofrecord' in items and items['basisofrecord'].lower() == '':
             pass
         else:
-            obj = {f'dwc:{key}': value for key, value in items.items()}
+            obj.update({f'dwc:{key}': value for key, value in items.items()})
             if 'dwc:id' in obj:
                 obj['owl:sameas'] = obj['dwc:id']
                 del obj['dwc:id']
