@@ -9,6 +9,7 @@ from django.test import SimpleTestCase
 from django.urls import resolve
 from website import views
 from django.db import DatabaseError
+from rdflib import Graph, Literal, URIRef
 
 
 class LivenessViewTests(SimpleTestCase):
@@ -241,6 +242,47 @@ class ResolverViewTests(APITestCase):
     # def test_renders_dataset_rdf(self):
     #     response_string = self._simple_request_dataset('application/rdf+xml')
     #     self.assertTrue('<owl:sameas>https://doi.org/10.12345/abcdef</owl:sameas>' in response_string)
+
+    def test_non_specimen_records_keep_id_and_context(self):
+        records = [
+            ('miljolare/fugl/771343', 'occurrence', {'occurrenceid': 'miljolare/fugl/771343', 'basisofrecord': 'HumanObservation', 'scientificname': 'Passer montanus'}),
+            ('5c0884ce-608c-4716-ba0e-cb389dca5580', 'event', {'id': '5c0884ce-608c-4716-ba0e-cb389dca5580', 'eventid': '1005727', 'eventdate': '2014-01-26'}),
+        ]
+        for id, type, data in records:
+            with self.subTest(id=id):
+                ResolvableObject.objects.create(id=id, type=type, dataset=self.dataset, data=data)
+                response = self.client.get(f'/{id}/?format=json')
+                self.assertEqual(response.status_code, 200)
+                result = json.loads(response.content.decode('utf-8'))
+                self.assertEqual(result['@id'], f'http://purl.org/gbifnorway/id/{id}')
+                self.assertEqual(result['@context']['dwc'], 'http://rs.tdwg.org/dwc/terms/')
+                self.assertEqual(result['rdf:type'], type)
+                self.assertEqual(result.get('owl:sameas'), data.get('id'))
+                for key, value in data.items():
+                    if key != 'id':
+                        self.assertEqual(result[f'dwc:{key}'], value)
+
+    def test_non_specimen_record_with_label_renders(self):
+        id = '5c0884ce-608c-4716-ba0e-cb389dca5580'
+        ResolvableObject.objects.create(id=id, type='dataset', dataset=self.dataset, data={'label': 'My dataset name', 'type': 'dataset', 'sameas': 'https://doi.org/10.12345/abcdef'})
+        response = self.client.get(f'/{id}/', HTTP_ACCEPT='application/ld+json')
+        self.assertEqual(response.status_code, 200)
+        result = json.loads(response.content.decode('utf-8'))
+        self.assertEqual(result['@id'], f'http://purl.org/gbifnorway/id/{id}')
+        self.assertEqual(result['rdfs:label'], 'My dataset name')
+        self.assertEqual(result['@context']['rdfs'], 'https://www.w3.org/tr/rdf-schema/')
+
+    def test_renders_non_specimen_record_as_linked_data(self):
+        id = 'miljolare/fugl/771343'
+        ResolvableObject.objects.create(id=id, type='occurrence', dataset=self.dataset, data={'basisofrecord': 'HumanObservation'})
+        subject = URIRef(f'http://purl.org/gbifnorway/id/{id}')
+        response = self.client.get(f'/{id}/', HTTP_ACCEPT='application/ld+json')
+        graph = Graph().parse(data=response.content.decode('utf-8'), format='json-ld')
+        self.assertIn((subject, URIRef('http://rs.tdwg.org/dwc/terms/basisofrecord'), Literal('HumanObservation')), graph)
+        response = self.client.get(f'/{id}/', HTTP_ACCEPT='application/rdf+xml')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(str(subject), response.content.decode('utf-8'))
+        self.assertIn('http://rs.tdwg.org/dwc/terms/', response.content.decode('utf-8'))
 
     def test_lists_specimens_sharing_a_uuid(self):
         uuid = '3136d80a-e74c-11e4-a2dc-00155d012a60'
